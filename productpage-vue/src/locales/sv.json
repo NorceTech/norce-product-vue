@@ -1,0 +1,53 @@
+{
+  "header": {
+    "brand": "HUGE MACHINES"
+  },
+  "debugPopup": {
+    "title": "Felsökningsinformation",
+    "close": "Stäng",
+    "context": {
+      "Product": "Produkt",
+      "Promos": "Kampanjer",
+      "Relations": "Relaterade produkter",
+      "Flags": "Flaggor"
+    }
+  },
+  "productPage": {
+    "shop": "Butik",
+    "backToList": "Tillbaka till produktlistan",
+    "description": "Beskrivning",
+    "chooseVariant": "Välj variant",
+    "relatedProducts": "Relaterade produkter",
+    "from": "Från",
+    "partNumber": "Artikelnummer:",
+    "includingVAT": "inklusive",
+    "vatAmountSuffix": "moms",
+    "inStock": "I lager:",
+    "buyable": "Tillgänglig för köp",
+    "loading": "Laddar…",
+    "downloadDataSheet": "Ladda ner datablad",
+    "nextDelivery": "Nästa leverans:",
+    "stockUnit": "st",
+    "zoomImage": "Visa bilden i större format",
+    "imageViewer": "Bildvisare",
+    "closeImage": "Stäng",
+    "previousImage": "Föregående bild",
+    "nextImage": "Nästa bild"
+  },
+  "productListView": {
+    "filters": "Filter",
+    "currencyUnit": "kr",
+    "inStock": "I lager",
+    "searchPlaceholder": "Sök produkter",
+    "searchClear": "Rensa sökningen",
+    "resultCount": "{count} produkter",
+    "noResults": "Inga produkter matchar din sökning."
+  },
+  "promoStrip": {
+    "defaultPromotionName": "Kampanj",
+    "close": "Stäng"
+  },
+  "bff": {
+    "errorMessage": "Varning: Kunde inte ansluta till BFF. Se till att backend körs."
+  }
+}

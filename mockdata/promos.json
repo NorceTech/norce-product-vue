@@ -1,0 +1,137 @@
+[
+  {
+    "Id": 51,
+    "Name": "10+2",
+    "Header": "",
+    "ShortDescription": "",
+    "Description1": "",
+    "Description2": "",
+    "StartDate": null,
+    "EndDate": null,
+    "ImageKey": null,
+    "RequirementSeed": "3",
+    "DiscountCode": null,
+    "IsExcludedFromPriceCalculation": false,
+    "AllowProductListing": false,
+    "Images": [],
+    "ProductFilters": [
+      {
+        "ManufacturerId": null,
+        "CategorySeed": null,
+        "TypeId": null,
+        "ProductId": null,
+        "VariantProductId": null,
+        "PartNo": null,
+        "PricelistId": null,
+        "FlagId": 1
+      }
+    ],
+    "AppliedAmount": null,
+    "EffectSeed": "5",
+    "FreightDiscountPct": null,
+    "IsStackable": false,
+    "AppliedAmountIncVat": null,
+    "ExclusivityType": 0,
+    "ExternalCode": "102"
+  },
+  {
+    "Id": 2,
+    "Name": "Special offer",
+    "Header": "10% off and free shipping!",
+    "ShortDescription": "A small rebate for all special offer marked products, unless they have a campaign price list.",
+    "Description1": "",
+    "Description2": "",
+    "StartDate": null,
+    "EndDate": null,
+    "ImageKey": "91f8c6d8-b05e-4a2a-a579-4ed1b7f563f7",
+    "RequirementSeed": "3,6",
+    "DiscountCode": null,
+    "IsExcludedFromPriceCalculation": false,
+    "AllowProductListing": false,
+    "Images": [],
+    "ProductFilters": [
+      {
+        "ManufacturerId": null,
+        "CategorySeed": null,
+        "TypeId": null,
+        "ProductId": null,
+        "VariantProductId": null,
+        "PartNo": null,
+        "PricelistId": 28,
+        "FlagId": 2
+      },
+      {
+        "ManufacturerId": null,
+        "CategorySeed": null,
+        "TypeId": null,
+        "ProductId": null,
+        "VariantProductId": null,
+        "PartNo": null,
+        "PricelistId": null,
+        "FlagId": 2
+      }
+    ],
+    "AppliedAmount": null,
+    "EffectSeed": "4,6",
+    "FreightDiscountPct": 100.00,
+    "IsStackable": false,
+    "AppliedAmountIncVat": null,
+    "ExclusivityType": 0,
+    "ExternalCode": "prm_special_offer"
+  },
+  {
+    "Id": 33,
+    "Name": "Season camp 2",
+    "Header": "Deal Deluxe!",
+    "ShortDescription": "BIG savings on HUGE products!",
+    "Description1": "",
+    "Description2": "",
+    "StartDate": null,
+    "EndDate": null,
+    "ImageKey": "e1258d34-a1a9-4efa-a894-cfddfa256ec6",
+    "RequirementSeed": "6",
+    "DiscountCode": null,
+    "IsExcludedFromPriceCalculation": false,
+    "AllowProductListing": false,
+    "Images": [],
+    "ProductFilters": [
+      {
+        "ManufacturerId": null,
+        "CategorySeed": null,
+        "TypeId": null,
+        "ProductId": null,
+        "VariantProductId": null,
+        "PartNo": null,
+        "PricelistId": null,
+        "FlagId": 1
+      },
+      {
+        "ManufacturerId": null,
+        "CategorySeed": null,
+        "TypeId": null,
+        "ProductId": null,
+        "VariantProductId": null,
+        "PartNo": null,
+        "PricelistId": null,
+        "FlagId": 38
+      },
+      {
+        "ManufacturerId": null,
+        "CategorySeed": null,
+        "TypeId": null,
+        "ProductId": null,
+        "VariantProductId": null,
+        "PartNo": null,
+        "PricelistId": null,
+        "FlagId": 1
+      }
+    ],
+    "AppliedAmount": null,
+    "EffectSeed": "4",
+    "FreightDiscountPct": null,
+    "IsStackable": false,
+    "AppliedAmountIncVat": null,
+    "ExclusivityType": 0,
+    "ExternalCode": "prm_season2"
+  }
+]

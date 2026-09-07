@@ -1,0 +1,11 @@
+{
+  "_comment": "Copy this file to mcp.json and fill in your own credentials. mcp.json is gitignored.",
+  "mcpServers": {
+    "norce-assistant": {
+      "url": "https://norceassistant.mcp.kapa.ai",
+      "headers": {
+        "Authorization": "Bearer YOUR_KAPA_AI_TOKEN_HERE"
+      }
+    }
+  }
+}

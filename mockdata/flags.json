@@ -1,0 +1,178 @@
+[
+  {
+    "Id": 1,
+    "Name": "Seasonal campaign",
+    "TypeId": 2,
+    "GroupId": 1,
+    "Description": "All products with this flag is part of a price list campaign.",
+    "Code": "flg_campaigns_seasonal"
+  },
+  {
+    "Id": 2,
+    "Name": "Special offer",
+    "TypeId": 1,
+    "GroupId": 1,
+    "Description": "All products with this flag are part of the special offer promotion",
+    "Code": "flg_promotion_specialoffer"
+  },
+  {
+    "Id": 18,
+    "Name": "Demo Campaign",
+    "TypeId": 1,
+    "GroupId": 1,
+    "Description": "A place holder for experimentation with campaigns and promotions.",
+    "Code": "fl_demo_campaign"
+  },
+  {
+    "Id": 7,
+    "Name": "New Product",
+    "TypeId": 1,
+    "GroupId": 2,
+    "Description": "waiting for initial check, is moved to 2 and also adding other enrichment flags needed, see other flag group Enrichment Actions.",
+    "Code": "fl_enrichment_workflow_new"
+  },
+  {
+    "Id": 8,
+    "Name": "Product In progress",
+    "TypeId": 1,
+    "GroupId": 2,
+    "Description": "enrichment is in progress, see enrichment actions for specifics",
+    "Code": "fl_enrichment_workflow_inprogress"
+  },
+  {
+    "Id": 9,
+    "Name": "To be checked",
+    "TypeId": 1,
+    "GroupId": 2,
+    "Description": "waiting for approval",
+    "Code": "fl_enrichment_workflow_tobechecked"
+  },
+  {
+    "Id": 10,
+    "Name": "Product Ready",
+    "TypeId": 1,
+    "GroupId": 2,
+    "Description": "Ready for selling, set product to \"Active\" or set start date for later activation",
+    "Code": "fl_enrichment_workflow_ready"
+  },
+  {
+    "Id": 3,
+    "Name": "Add images",
+    "TypeId": 1,
+    "GroupId": 3,
+    "Description": "Upload product images",
+    "Code": "fl_enrichment_addimages"
+  },
+  {
+    "Id": 4,
+    "Name": "Add texts and descriptions",
+    "TypeId": 1,
+    "GroupId": 3,
+    "Description": "Add different type of texts and descriptions to the product on main language.",
+    "Code": "fl_enrichment_addtexts"
+  },
+  {
+    "Id": 5,
+    "Name": "Add variant unique parametrics",
+    "TypeId": 2,
+    "GroupId": 3,
+    "Description": "Enrich variant",
+    "Code": "fl_enrichment_variantparametrics"
+  },
+  {
+    "Id": 6,
+    "Name": "Add parametrics",
+    "TypeId": 1,
+    "GroupId": 3,
+    "Description": "Add product parametrics",
+    "Code": "fl_enrichment_parametrics"
+  },
+  {
+    "Id": 11,
+    "Name": "A - products",
+    "TypeId": 1,
+    "GroupId": 4,
+    "Description": "First class products",
+    "Code": "fl_selections_aproducts"
+  },
+  {
+    "Id": 12,
+    "Name": "B - Products",
+    "TypeId": 1,
+    "GroupId": 4,
+    "Description": "Second class products",
+    "Code": "fl_selections_bproducts"
+  },
+  {
+    "Id": 13,
+    "Name": "C - Products",
+    "TypeId": 1,
+    "GroupId": 4,
+    "Description": "Third class products",
+    "Code": "fl_selections_cproducts"
+  },
+  {
+    "Id": 14,
+    "Name": "Sellable on Amazon",
+    "TypeId": 2,
+    "GroupId": 4,
+    "Description": "All variants that can be sold on Amazon",
+    "Code": "fl_selections_amazon"
+  },
+  {
+    "Id": 15,
+    "Name": "Outlet",
+    "TypeId": 2,
+    "GroupId": 4,
+    "Description": "Variants on outlet",
+    "Code": "fl_selections_outlet"
+  },
+  {
+    "Id": 16,
+    "Name": "Winter products",
+    "TypeId": 1,
+    "GroupId": 4,
+    "Description": "Only sold during winter season",
+    "Code": "fl_selections_winter"
+  },
+  {
+    "Id": 17,
+    "Name": "Exclude from Dynamic pricing SE",
+    "TypeId": 2,
+    "GroupId": 4,
+    "Description": "Do not allow for competor pricing on Swedish market",
+    "Code": "fl_selections_exclude_comp_se"
+  },
+  {
+    "Id": 38,
+    "Name": "No Discount products",
+    "TypeId": 1,
+    "GroupId": 11,
+    "Description": "",
+    "Code": "flg_nodiscount"
+  },
+  {
+    "Id": 41,
+    "Name": "Packages",
+    "TypeId": 2,
+    "GroupId": 11,
+    "Description": "Use for price rules, testing erppackaging",
+    "Code": "f_packages"
+  },
+  {
+    "Id": 39,
+    "Name": "Variant in progress",
+    "TypeId": 2,
+    "GroupId": 12,
+    "Description": "",
+    "Code": "fl_enrichment_workflow_variantinprogress"
+  },
+  {
+    "Id": 40,
+    "Name": "Variant ready",
+    "TypeId": 2,
+    "GroupId": 12,
+    "Description": "",
+    "Code": "fl_enrichment_workflow_variantready"
+  }
+]

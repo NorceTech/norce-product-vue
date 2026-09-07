@@ -1,0 +1,698 @@
+/* =====================================================================
+   Global CSS – Huge Machines product page (cleaned & organised)
+   ---------------------------------------------------------------------
+   Layer order:
+     1. Reset & base
+     2. Design tokens (CSS‑vars)
+     3. Utilities (atomic helpers)
+     4. Layout (global structures)
+     5. Component rules
+     6. Media queries / responsive tweaks
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Reset & base
+   ------------------------------------------------------------------ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0
+}
+
+img {
+    display: block;
+    max-width: 100%
+}
+
+a {
+    color: inherit;
+    text-decoration: none
+}
+
+body {
+    font: 16px/1.5 "Inter", Arial, sans-serif;
+    background: #f7f7f7;
+    color: #222
+}
+
+h1, h2, h3 {
+    font-weight: 600;
+    margin: 0 0 .5rem
+}
+
+h1 {
+    font-size: 1.75rem
+}
+
+h2 {
+    font-size: 1.25rem
+}
+
+h3 {
+    font-size: 1.125rem
+}
+
+/* ---------------------------------------------------------------------
+   2. Design tokens
+   ------------------------------------------------------------------ */
+:root {
+    --primary: #e63946;
+    --accent: #457b9d;
+    --gray-100: #f7f7f7;
+    --gray-900: #1e1e1e;
+    --radius: 1rem;
+}
+
+/* ---------------------------------------------------------------------
+   3. Utilities (atomic, re‑usable helpers)
+   ------------------------------------------------------------------ */
+.flex {
+    display: flex
+}
+
+.grid {
+    display: grid
+}
+
+.gap-4 {
+    gap: 1rem
+}
+
+.cols-4 {
+    grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem
+}
+
+.mt-2 {
+    margin-top: .5rem
+}
+
+.mt-4 {
+    margin-top: 1rem
+}
+
+.mt-8 {
+    margin-top: 2rem
+}
+
+.mb-1 {
+    margin-bottom: .25rem
+}
+
+.mb-2 {
+    margin-bottom: .5rem
+}
+
+.mb-4 {
+    margin-bottom: 1rem
+}
+
+/* ---------------------------------------------------------------------
+   4. Layout
+   ------------------------------------------------------------------ */
+.container {
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 1.5rem
+}
+
+.card {
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    border: 1px solid #e5e5e5;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .04)
+}
+
+/* product-card = galleri + info */
+.product-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3rem;
+    align-items: flex-start
+}
+
+/* ---------------------------------------------------------------------
+   5. Component rules
+   ------------------------------------------------------------------ */
+/* --- Header / brand ------------------------------------------------- */
+.brand {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 4rem;
+    letter-spacing: .08em;
+    color: var(--primary)
+}
+
+/* --- Gallery -------------------------------------------------------- */
+.gallery {
+    flex-grow: 2;
+    flex-shrink: 1;
+    flex-basis: 420px;
+    min-width: 300px;
+}
+
+.hero-box {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9
+}
+
+.hero-box > * {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius)
+}
+
+.thumbs {
+    display: flex;
+    gap: .75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    justify-content: center; /* centrera thumbnails */
+}
+
+.thumbs img {
+    width: 84px;
+    height: 84px;
+    object-fit: cover;
+    border: 2px solid transparent;
+    border-radius: calc(var(--radius) / 2);
+    cursor: pointer;
+    transition: border-color .2s
+}
+
+.thumbs img.active, .thumbs img:hover {
+    border-color: var(--accent)
+}
+
+/* --- Image lightbox -------------------------------------------------- */
+/* The hero image is a button that opens the full-screen viewer. The overlay is
+   teleported to body, so its styles live here rather than in a scoped block. */
+.hero-zoom {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: zoom-in;
+}
+
+.hero-zoom img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius);
+}
+
+.lb {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(1rem, 4vw, 3rem);
+}
+
+.lb__backdrop {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+    border: 0;
+    background: rgba(0, 0, 0, .88);
+    cursor: zoom-out;
+}
+
+.lb__figure {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    margin: 0;
+    max-width: 100%;
+    max-height: 100%;
+    /* Let clicks on the image fall through to the backdrop, so clicking
+       anywhere outside the controls closes the viewer. */
+    pointer-events: none;
+}
+
+.lb__img {
+    max-width: 100%;
+    max-height: calc(100vh - 9rem);
+    object-fit: contain;
+    border-radius: calc(var(--radius) / 2);
+    background: #fff;
+}
+
+.lb__counter {
+    color: #fff;
+    font-size: .95rem;
+    letter-spacing: .02em;
+}
+
+.lb__btn {
+    position: absolute;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color .2s;
+}
+
+.lb__btn:hover,
+.lb__btn:focus-visible {
+    background: rgba(255, 255, 255, .3);
+}
+
+.lb__close {
+    top: 1rem;
+    right: 1rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.9rem;
+}
+
+.lb__prev,
+.lb__next {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3rem;
+    height: 3rem;
+    font-size: 2rem;
+}
+
+.lb__prev { left: 1rem; }
+.lb__next { right: 1rem; }
+
+@media (max-width: 640px) {
+    .lb__prev,
+    .lb__next {
+        width: 2.5rem;
+        height: 2.5rem;
+        font-size: 1.6rem;
+    }
+
+    .lb__prev { left: .25rem; }
+    .lb__next { right: .25rem; }
+}
+
+/* --- Product info --------------------------------------------------- */
+
+.product-info {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 320px;
+    min-width: 300px;
+}
+.product-info h1 {
+    font-size: 2rem;
+    margin-bottom: .5rem
+}
+
+.subtitle {
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+    font-weight: 600
+}
+
+.price {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: .25rem
+}
+
+.price small {
+    font-size: .875rem;
+    font-weight: 400
+}
+
+.price-inc {
+    color: #555;
+    margin-bottom: 1rem
+}
+
+.stock {
+    margin-bottom: 2rem;
+    font-size: .95rem
+}
+
+/* --- Buttons -------------------------------------------------------- */
+.btn {
+    display: inline-block;
+    padding: .75rem 2.5rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+    transition: background .25s
+}
+
+.btn.primary {
+    background: var(--primary);
+    color: #fff
+}
+
+.btn.primary:hover {
+    background: #c92d3a
+}
+
+.btn-outline {
+    display: inline-block;
+    background: #fff;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    padding: .75rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: .25s;
+    text-align: center
+}
+
+.btn-outline:hover {
+    background: var(--primary);
+    color: #fff
+}
+
+/* --- Badges --------------------------------------------------------- */
+.badge-row {
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem
+}
+
+.promo-badge {
+    background: var(--primary);
+    color: #fff;
+    padding: .4rem 1rem;
+    font-size: .8rem;
+    font-weight: 700;
+    border-radius: var(--radius)
+}
+
+.manufacturer-badge {
+    background: #000;
+    color: #fff;
+    text-transform: uppercase;
+    padding: .35rem 1rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    border-radius: var(--radius)
+}
+
+.flag-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin: -.25rem 0 1rem
+}
+
+.flag-badge {
+    background: var(--accent);
+    color: #fff;
+    padding: .35rem .9rem;
+    font-size: .75rem;
+    font-weight: 600;
+    border-radius: var(--radius);
+    line-height: 1
+}
+
+.in-stock {
+    font-weight: 700;
+    color: #2a9d8f
+}
+
+/* --- Cart drawer (global for teleport) ------------------------------ */
+.cart-button {
+    position: relative;
+    border: 1px solid #111;
+    border-radius: 999px;
+    padding: .45rem 1.1rem;
+    font-weight: 600;
+    background: #fff;
+    cursor: pointer;
+    transition: background .2s
+}
+.cart-button:hover { background: #f0f0f0 }
+.cart-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    padding: 0 .35rem;
+    height: 1.4rem;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: .75rem;
+    margin-left: .5rem
+}
+.cart-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    grid-template-columns: 1fr auto
+}
+.cart-backdrop {
+    border: none;
+    background: rgba(0, 0, 0, .4);
+    width: 100%;
+    height: 100%
+}
+.cart-panel {
+    width: min(420px, 92vw);
+    background: #fff;
+    height: 100%;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, .15)
+}
+.cart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem
+}
+.cart-close {
+    border: none;
+    background: transparent;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer
+}
+.cart-items {
+    display: grid;
+    gap: 1rem;
+    overflow: auto;
+    padding-right: .25rem
+}
+.cart-item {
+    border: 1px solid #e4e4e4;
+    border-radius: .75rem;
+    padding: .75rem;
+    display: grid;
+    gap: .5rem
+}
+.cart-item-title { font-weight: 600 }
+.cart-item-meta {
+    font-size: .85rem;
+    color: #666
+}
+.cart-item-controls {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: .5rem;
+    align-items: center
+}
+.cart-qty {
+    width: 70px;
+    padding: .35rem .5rem;
+    border: 1px solid #ddd;
+    border-radius: .5rem
+}
+.cart-item-price {
+    font-weight: 600;
+    text-align: right
+}
+.cart-remove {
+    border: none;
+    background: transparent;
+    color: var(--primary);
+    font-weight: 600;
+    cursor: pointer;
+    text-align: right
+}
+.cart-empty { padding: 2rem 0; color: #666 }
+.cart-footer {
+    margin-top: auto;
+    border-top: 1px solid #eee;
+    padding-top: 1rem;
+    display: grid;
+    gap: 1rem
+}
+.cart-summary { display: grid; gap: .5rem }
+.cart-summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .95rem
+}
+.cart-checkout {
+    width: 100%;
+    text-align: center
+}
+.cart-clear {
+    width: 100%;
+    text-align: center
+}
+
+/* --- Breadcrumb ----------------------------------------------------- */
+.breadcrumb {
+    font-size: .875rem;
+    color: #555;
+    margin: 0 0 1rem
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline
+}
+
+.partno {
+    margin: -.75rem 0 1.25rem;
+    font-size: .9rem;
+    color: #555
+}
+
+/* --- Specs grid ----------------------------------------------------- */
+.spec-grid {
+    display: grid;
+    grid-template-columns:1fr 1fr;
+    gap: .35rem 1.25rem;
+    margin-bottom: 2rem;
+    font-size: .95rem
+}
+
+.spec-grid dt {
+    font-weight: 600
+}
+
+.spec-grid dd {
+    margin: 0
+}
+
+/* --- Video wrapper (legacy) ---------------------------------------- */
+.video-wrap {
+    position: relative;
+    margin-top: 1.5rem;
+    padding-bottom: 56.25%;
+    height: 0
+}
+
+.video-wrap iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius)
+}
+
+/* ---------------------------------------------------------------------
+   6. Responsive tweaks
+   ------------------------------------------------------------------ */
+@media (max-width: 800px) {
+    .product-card {
+        flex-direction: column;
+    }
+
+    .gallery,
+    .product-info {
+        max-width: 100%;
+        flex: 1 1 100%;
+    }
+}
+
+
+@media (max-width: 600px) {
+    .spec-grid {
+        grid-template-columns:1fr
+    }
+}
+
+/* === Relaterade produkter: kolumnlayout för grupper === */
+.rel-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0,1fr)); /* Accessories | Spare parts sida vid sida */
+    gap:1rem;
+}
+.rel-col{ min-width:0; } /* så att grid-barn kan krympa */
+@media (max-width: 900px){
+    .rel-grid{ grid-template-columns:1fr; } /* stapla på mobil */
+}
+
+/* === Relaterade produkter: grupper sida vid sida === */
+.relations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+}
+
+
+/* === Relaterade produkter: 2 grupper × 2 kolumner = 4 kolumner totalt === */
+.relations-split{
+    display:grid;
+    grid-template-columns:1fr 1fr;   /* Accessories | Spare parts */
+    gap:2rem;
+}
+.group-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(180px,1fr)); /* 2 kolumner per grupp */
+    gap:1rem;
+}
+
+@media (max-width: 1000px){
+    .relations-split{ grid-template-columns:1fr; } /* stapla grupper på smalare skärmar */
+}
+@media (max-width: 600px){
+    .group-grid{ grid-template-columns:1fr; }      /* 1 kolumn per grupp på mobil */
+}
+
+/* === Relaterade produkter, auto-span per grupp === */
+.relations-outer{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:1.25rem;
+}
+
+.relation-group{
+    /* span styrs via inline-CSS-variabel --span */
+    grid-column: span var(--span, 2);
+    min-width:0;
+}
+
+.relation-products{
+    display:grid;
+    /* antal kolumner i gruppens inre grid = --cols (matchar span) */
+    grid-template-columns:repeat(var(--cols, 2), minmax(180px,1fr));
+    gap:1rem;
+}
+
+/* responsivt: 2 kolumner på smalare skärmar, 1 kolumn på mobil */
+@media (max-width: 1000px){
+    .relations-outer{ grid-template-columns:repeat(2, 1fr); }
+}
+@media (max-width: 600px){
+    .relations-outer{ grid-template-columns:1fr; }
+    .relation-group{ grid-column:1 / -1; } /* varje grupp tar full rad */
+    .relation-products{ grid-template-columns:1fr; }
+}

@@ -1,0 +1,21 @@
+.promo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+/* Inlined PromoCard styles */
+.promo-card{ position:relative; width:120px; height:120px; border-radius:12px; overflow:hidden;
+  box-shadow:0 4px 12px rgba(0,0,0,.08); background:#fff; outline:none }
+.promo-img, .promo-img img{ width:100%; height:100%; object-fit:cover; display:block; background:#f3f3f3 }
+.promo-pill{ display:flex; align-items:center; justify-content:center; padding:8px; text-align:center; font-weight:600; width:100%; height:100% }
+
+/* Inlined PromoPopover styles */
+.promo-pop{
+  max-width: 260px;
+  background:#fff;border-radius:12px;padding:12px;
+  box-shadow:0 12px 28px rgba(0,0,0,.18);
+}
+.pop-close{ position:absolute; top:6px; right:8px; border:0; background:transparent; font-size:18px; cursor:pointer }
+.muted{ opacity:.8; margin:.25rem 0 .5rem }
