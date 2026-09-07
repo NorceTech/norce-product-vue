@@ -95,3 +95,10 @@ productpage-vue.log
 
 # IDE project state
 .idea/
+
+# Local secrets and generated dependencies
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
