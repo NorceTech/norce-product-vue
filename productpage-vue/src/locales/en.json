@@ -1,0 +1,53 @@
+{
+  "header": {
+    "brand": "HUGE MACHINES"
+  },
+  "debugPopup": {
+    "title": "Debug Information",
+    "close": "Close",
+    "context": {
+      "Product": "Product",
+      "Promos": "Promos",
+      "Relations": "Relations",
+      "Flags": "Flags"
+    }
+  },
+  "productPage": {
+    "shop": "Shop",
+    "backToList": "Back to Product List",
+    "description": "Description",
+    "chooseVariant": "Choose variant",
+    "relatedProducts": "Related products",
+    "from": "From",
+    "partNumber": "Part Number:",
+    "includingVAT": "including",
+    "vatAmountSuffix": "VAT",
+    "inStock": "In Stock:",
+    "buyable": "Available for purchase",
+    "loading": "Loading…",
+    "downloadDataSheet": "Download data sheet",
+    "nextDelivery": "Next delivery:",
+    "stockUnit": "pcs",
+    "zoomImage": "Enlarge image",
+    "imageViewer": "Image viewer",
+    "closeImage": "Close",
+    "previousImage": "Previous image",
+    "nextImage": "Next image"
+  },
+  "productListView": {
+    "filters": "Filters",
+    "currencyUnit": "kr",
+    "inStock": "In stock",
+    "searchPlaceholder": "Search products",
+    "searchClear": "Clear search",
+    "resultCount": "{count} products",
+    "noResults": "No products match your search."
+  },
+  "promoStrip": {
+    "defaultPromotionName": "Promotion",
+    "close": "Close"
+  },
+  "bff": {
+    "errorMessage": "Warning: Could not connect to the BFF. Please ensure the backend is running."
+  }
+}

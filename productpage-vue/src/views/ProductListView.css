@@ -1,0 +1,229 @@
+/* =========================
+   Layout: page + sidebar
+   ========================= */
+.product-list-container {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  padding: 1.5rem 8rem 8rem;
+}
+
+/* Sidebar & Layout */
+.sidebar {
+  width: 440px;
+  flex-shrink: 0;
+}
+
+/* The heading is part of the panel, so it carries the panel's own divider
+   rather than floating above it. */
+.filter-panel-title {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid #f1f1f1;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* =========================
+   Filter panel
+   ========================= */
+.filter-panel {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 0.875rem;
+}
+
+.filter-group {
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.filter-group:last-child {
+  border-bottom: 0;
+}
+
+.filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+/* Hide the native disclosure triangle; the chevron below replaces it. */
+.filter-summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-summary:hover {
+  background: var(--gray-100);
+}
+
+.filter-summary::after {
+  content: "";
+  flex-shrink: 0;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-right: 2px solid #999;
+  border-bottom: 2px solid #999;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.15s ease;
+}
+
+.filter-group[open] > .filter-summary::after {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+/* Takes the free space so badge and chevron sit right. */
+.filter-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filter-badge {
+  flex-shrink: 0;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+/* Scoped with .sidebar so these beat the `.sidebar ul { padding: 0 }` reset
+   above - that selector is (0,1,1) and a bare .filter-values is only (0,1,0),
+   so the padding was being reset and the checkboxes sat flush left. */
+.sidebar .filter-values {
+  padding: 0 0.85rem 0.75rem;
+}
+
+.sidebar .filter-values li + li {
+  margin-top: 0.3rem;
+}
+
+.sidebar .filter-values label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.sidebar .filter-values input[type="checkbox"] {
+  margin: 0.15rem 0 0;
+  flex-shrink: 0;
+}
+
+.filter-count {
+  color: #8a8a8a;
+}
+
+/* =========================
+   Results column
+   ========================= */
+.results {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.search-field {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 2.2rem 0.6rem 0.85rem;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 0.95rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Chrome draws its own clear button on type="search"; ours is the one that
+   also resets the query, so hide the native one. */
+.search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #777;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.result-count {
+  flex-shrink: 0;
+  margin: 0;
+  color: #777;
+  font-size: 0.875rem;
+}
+
+.results-empty {
+  margin: 0;
+  padding: 2.5rem 0;
+  color: #777;
+  text-align: center;
+}
+
+/* =========================
+   Product grid
+   ========================= */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-auto-rows: minmax(320px, auto);
+  gap: 1rem;
+  align-items: stretch;
+  align-content: flex-start;
+}
+
+/* --- Parametric filters ---------------------------------------------- */
+.filter-uom {
+    font-weight: 400;
+    color: #777;
+    font-size: .85em;
+}
+
+.filter-range {
+    padding: 0.35rem 0.95rem 0.85rem;
+}

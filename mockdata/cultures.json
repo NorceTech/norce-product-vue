@@ -1,0 +1,161 @@
+{
+  "Id": 1042,
+  "ParentId": 1042,
+  "Key": "ae64002a-7068-4b18-a496-a7c4d778e7ec",
+  "Name": "Open Demo Playground SE",
+  "Url": "https://norce-open-demo.playground.norce.io",
+  "SenderEmailAddress": null,
+  "Client": {
+    "Id": 1000,
+    "Key": "98f0c7fb-de3c-4600-9445-a61fc5e85fa4",
+    "Name": "Norce Open Demo"
+  },
+  "Cultures": {
+    "List": [
+      {
+        "Code": "en-GB",
+        "Name": "English (United Kingdom)"
+      },
+      {
+        "Code": "sv-SE",
+        "Name": "Swedish (Sweden)"
+      }
+    ],
+    "Default": {
+      "Code": "en-GB",
+      "Name": "English (United Kingdom)"
+    }
+  },
+  "Currencies": {
+    "List": [
+      {
+        "Id": 2,
+        "Name": "Swedish kronor",
+        "Code": "SEK",
+        "Prefix": null,
+        "Suffix": " SEK"
+      }
+    ],
+    "Default": {
+      "Id": 2,
+      "Name": "Swedish kronor",
+      "Code": "SEK",
+      "Prefix": null,
+      "Suffix": " SEK"
+    }
+  },
+  "Pricelists": {
+    "Ids": [
+      4,
+      20,
+      28
+    ],
+    "Default": 4
+  },
+  "SalesAreas": {
+    "List": [
+      {
+        "Id": 1,
+        "Name": "Sweden",
+        "CurrencyId": 2,
+        "VatCodeId": 25
+      },
+      {
+        "Id": 4,
+        "Name": "Finland",
+        "CurrencyId": 1,
+        "VatCodeId": 1255
+      }
+    ],
+    "Default": {
+      "Id": 1,
+      "Name": "Sweden",
+      "CurrencyId": 2,
+      "VatCodeId": 25
+    }
+  },
+  "Roles": {
+    "List": [
+      {
+        "Id": 6,
+        "Name": "Restricted User",
+        "Description": "Allowed to see and prepare order, but require approval. Used when attesting is required for the company (flag)"
+      },
+      {
+        "Id": 11,
+        "Name": "Guest",
+        "Description": "Allowed to see products, browse, but not buy"
+      },
+      {
+        "Id": 12,
+        "Name": "Approver",
+        "Description": "Allowed to validate orders before purchase. Used when approving is required for the company (flag)"
+      },
+      {
+        "Id": 13,
+        "Name": "Buyer",
+        "Description": "Allowed to buy on the application"
+      }
+    ],
+    "Default": {
+      "Id": 13,
+      "Name": "Buyer",
+      "Description": "Allowed to buy on the application"
+    }
+  },
+  "Countries": {
+    "List": [
+      {
+        "Id": 1,
+        "Name": "Sweden",
+        "Code": "SE"
+      },
+      {
+        "Id": 3,
+        "Name": "Austria",
+        "Code": "AT"
+      },
+      {
+        "Id": 6,
+        "Name": "Canada",
+        "Code": "CA"
+      },
+      {
+        "Id": 11,
+        "Name": "Denmark",
+        "Code": "DK"
+      },
+      {
+        "Id": 14,
+        "Name": "Finland",
+        "Code": "FI"
+      },
+      {
+        "Id": 15,
+        "Name": "France",
+        "Code": "FR"
+      },
+      {
+        "Id": 16,
+        "Name": "United Kingdom",
+        "Code": "GB"
+      },
+      {
+        "Id": 29,
+        "Name": "United States",
+        "Code": "US"
+      },
+      {
+        "Id": 31,
+        "Name": "Estonia",
+        "Code": "EE"
+      }
+    ],
+    "Default": {
+      "Id": 1,
+      "Name": "Sweden",
+      "Code": "SE"
+    }
+  },
+  "Authorizations": []
+}

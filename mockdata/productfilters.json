@@ -1,0 +1,413 @@
+[
+  {
+    "Name": "catf",
+    "Type": "Category",
+    "Items": [
+      {
+        "$type": "FilterItem",
+        "Id": "17",
+        "Name": "Byxor",
+        "Value": "17",
+        "Type": null,
+        "Uom": null,
+        "Count": 0,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "14",
+        "Name": "Chain saw accessories",
+        "Value": "14",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "16",
+        "Name": "Jackets",
+        "Value": "16",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "15",
+        "Name": "Kläder",
+        "Value": "15",
+        "Type": null,
+        "Uom": null,
+        "Count": 3,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "9",
+        "Name": "Maskiner",
+        "Value": "9",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "11",
+        "Name": "Motorsågar",
+        "Value": "11",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "40",
+        "Name": "Phones",
+        "Value": "40",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "5",
+        "Name": "Produkter",
+        "Value": "5",
+        "Type": null,
+        "Uom": null,
+        "Count": 2,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "23",
+        "Name": "Spare parts",
+        "Value": "23",
+        "Type": null,
+        "Uom": null,
+        "Count": 3,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "27",
+        "Name": "Tractors",
+        "Value": "27",
+        "Type": null,
+        "Uom": null,
+        "Count": 2,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      }
+    ]
+  },
+  {
+    "Name": "mfrf",
+    "Type": "Manufacturer",
+    "Items": [
+      {
+        "$type": "FilterItem",
+        "Id": "4",
+        "Name": "Blåkläder",
+        "Value": "4",
+        "Type": null,
+        "Uom": null,
+        "Count": 2,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "2",
+        "Name": "Demo",
+        "Value": "2",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "3",
+        "Name": "Husqvarna",
+        "Value": "3",
+        "Type": null,
+        "Uom": null,
+        "Count": 5,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "17",
+        "Name": "Ideal of Sweden",
+        "Value": "17",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "8",
+        "Name": "NGK",
+        "Value": "8",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "14",
+        "Name": "Samsung",
+        "Value": "14",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "10",
+        "Name": "Trejon",
+        "Value": "10",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "6",
+        "Name": "Woodline",
+        "Value": "6",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "53",
+        "Name": "YANMAR",
+        "Value": "53",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      }
+    ]
+  },
+  {
+    "Name": "flgf",
+    "Type": "Flag",
+    "Items": [
+      {
+        "$type": "FilterItem",
+        "Id": "1",
+        "Name": "Seasonal campaign",
+        "Value": "1",
+        "Type": null,
+        "Uom": null,
+        "Count": 6,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "10",
+        "Name": "Product Ready",
+        "Value": "10",
+        "Type": null,
+        "Uom": null,
+        "Count": 10,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "11",
+        "Name": "A - products",
+        "Value": "11",
+        "Type": null,
+        "Uom": null,
+        "Count": 2,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "13",
+        "Name": "C - Products",
+        "Value": "13",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "15",
+        "Name": "Outlet",
+        "Value": "15",
+        "Type": null,
+        "Uom": null,
+        "Count": 2,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "16",
+        "Name": "Winter products",
+        "Value": "16",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "17",
+        "Name": "Exclude from Dynamic pricing SE",
+        "Value": "17",
+        "Type": null,
+        "Uom": null,
+        "Count": 3,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "18",
+        "Name": "Demo Campaign",
+        "Value": "18",
+        "Type": null,
+        "Uom": null,
+        "Count": 4,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "2",
+        "Name": "Special offer",
+        "Value": "2",
+        "Type": null,
+        "Uom": null,
+        "Count": 3,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "3",
+        "Name": "Add images",
+        "Value": "3",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      },
+      {
+        "$type": "FilterItem",
+        "Id": "6",
+        "Name": "Add parametrics",
+        "Value": "6",
+        "Type": null,
+        "Uom": null,
+        "Count": 1,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      }
+    ]
+  },
+  {
+    "Name": "ohf",
+    "Type": "OnHand",
+    "Items": [
+      {
+        "$type": "FilterItem",
+        "Id": null,
+        "Name": null,
+        "Value": "True",
+        "Type": null,
+        "Uom": null,
+        "Count": 12,
+        "Description": null,
+        "Code": null,
+        "SortOrder": null
+      }
+    ]
+  },
+  {
+    "Name": "prcf",
+    "Type": "Price",
+    "Items": [
+      {
+        "$type": "FilterPriceItem",
+        "Id": null,
+        "Name": null,
+        "From": 1.00,
+        "To": 210000.00,
+        "FromIncVat": 1.25,
+        "ToIncVat": 262500.00
+      }
+    ]
+  }
+]

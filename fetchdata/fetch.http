@@ -1,0 +1,234 @@
+
+### Fetch product data
+
+@uniqueName = trejon-flexitrac-1022lrf
+#@uniqueName = husqvarna-550-xpg-mark-ii-chainsaw
+#@uniqueName = blaklader-4949-softshell-jacket
+@categories= 5
+@culture = sv-SE
+@payment_method_id = 239
+
+# NCO settings (optional - for checkout mockdata)
+@nco_base = https://norce-open-demo.api-se.playground.norce.tech
+@nco_norce_adapter = /checkout/norce-adapter
+@nco_nonpsp_adapter = /checkout/nonpsp-adapter
+@nco_order_api = /checkout/order
+@nco_merchant = norce-open-demo
+@nco_channel = nc-nonpsp-se
+@nco_token = {{NCO_TOKEN}}
+@nco_auth = Bearer {{nco_token}}
+
+### OAuth2 token request
+POST {{api_base}}{{identity_path}}
+Content-Type: application/x-www-form-urlencoded
+
+grant_type = client_credentials &
+client_id = {{oauth_id}} &
+client_secret = {{oauth_secret}} &
+scope = {{oauth_scope}}
+
+> {%
+    if (response.status >= 400) {
+        throw new Error(`Request failed with status ${response.status}: ${response.body}`);
+    }
+    client.global.set("token", response.body.access_token);
+
+    client.test("Token Received and Set", function() {
+        // Kontrollerar att access_token finns i svaret
+        client.assert(response.body.access_token, "Access token should not be null or undefined.");
+        // Checks that the status code is 200 (as in the JetBrains examples)
+        client.assert(response.status === 200, `Expected status 200, got ${response.status}`);
+    });
+%}
+
+
+#### Get product by unique name
+GET {{api_base}}{{product_service}}/GetProductByUniqueName?format=json&uniqueName={{uniqueName}}&statusSeed=1,3&cultureCode={{culture}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+> {%
+    // 2a) Spara formaterad JSON i en global variabel
+    const pretty = JSON.stringify(response.body, null, 2);
+    client.global.set('prettyProduct', pretty);
+
+    // 2b) Save productId for the next request
+    client.global.set('productId', response.body.Id);
+    client.global.set('productPartNo', response.body.PartNo);
+    client.global.set('productName', response.body.Name);
+    client.global.set('productPriceListId', response.body.PriceListId);
+    client.global.set('productCurrency', response.body.CurrencyCode || 'SEK');
+%}
+
+>>! ../mockdata/product.json
+
+
+### Get relations by product Id
+GET {{api_base}}{{product_service}}/ListProductRelations?format=json&productId={{productId}}&statusSeed=1,3&cultureCode={{culture}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/relations.json
+
+
+### Get promos by unique name
+GET {{api_base}}{{product_service}}/ListPromotionsByProductUniqueName?format=json&uniqueName={{uniqueName}}&statusSeed=1,3&cultureCode={{culture}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/promos.json
+
+
+### Get Flags
+GET {{api_base}}{{product_service}}/ListFlags?format=json&cultureCode={{culture}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/flags.json
+
+
+#### List products in specific categories
+GET {{api_base}}{{product_service}}/ListProducts2?format=json&categorySeed={{categories}}&statusSeed=1,3&cultureCode={{culture}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/productlist.json
+
+
+#### List product filters for specific categories
+GET {{api_base}}{{product_service}}/ListProductFilters2?format=json&categorySeed={{categories}}&statusSeed=1,3&cultureCode={{culture}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/productfilters.json
+
+### Get cultures
+GET {{api_base}}{{metadata_service}}/GetApplication?format=json&applicationId={{application_id}}&categorySeed={{categories}}&statusSeed=1,3
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/cultures.json
+
+### Create basket (with NCO payment method)
+POST {{api_base}}{{shopping_service}}/CreateBasket?format=json&ipAddress=127.0.0.1&createdBy=1&cultureCode={{culture}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+{
+  "PaymentMethodId": {{payment_method_id}},
+  "Items": [
+    {
+      "PartNo": "{{productPartNo}}",
+      "Name": "{{productName}}",
+      "Quantity": 1,
+      "PriceListId": {{productPriceListId}}
+    }
+  ]
+}
+
+> {%
+    client.global.set('basketId', response.body.Id);
+%}
+
+### Get basket
+GET {{api_base}}{{shopping_service}}/GetBasket?format=json&cultureCode={{culture}}&id={{basketId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/basket.json
+
+### Checkout: Create order (NCO Norce adapter)
+POST {{nco_base}}{{nco_norce_adapter}}/api/v1/orders
+Content-Type: application/json
+Authorization: {{nco_auth}}
+x-merchant: {{nco_merchant}}
+x-channel: {{nco_channel}}
+
+{
+  "cartReference": {{basketId}},
+  "culture": "{{culture}}",
+  "currency": "{{productCurrency}}"
+}
+
+> {%
+    client.global.set('orderId', response.body.id);
+%}
+
+>>! ../mockdata/checkout-initiate.json
+
+### Checkout: Create Non-PSP payment
+POST {{nco_base}}{{nco_nonpsp_adapter}}/api/checkout/v1/orders/{{orderId}}/payments
+Content-Type: application/json
+Authorization: {{nco_auth}}
+x-merchant: {{nco_merchant}}
+x-channel: {{nco_channel}}
+
+{}
+
+> {%
+    client.global.set('paymentId', response.body.paymentId);
+%}
+
+>>! ../mockdata/checkout-payment.json
+
+### Checkout: Update billing
+PUT {{nco_base}}{{nco_order_api}}/api/v0/checkout/orders/{{orderId}}/customer/billing
+Content-Type: application/json
+Authorization: {{nco_auth}}
+x-merchant: {{nco_merchant}}
+x-channel: {{nco_channel}}
+
+{
+  "type": "person",
+  "givenName": "Demo",
+  "familyName": "User",
+  "email": "demo.user@example.com",
+  "streetAddress": "Demo Street 1",
+  "postalCode": "12345",
+  "city": "Stockholm",
+  "country": "SE",
+  "phone": "0701234567"
+}
+
+>>! ../mockdata/checkout-billing.json
+
+### Checkout: Update shipping
+PUT {{nco_base}}{{nco_order_api}}/api/v0/checkout/orders/{{orderId}}/customer/shipping
+Content-Type: application/json
+Authorization: {{nco_auth}}
+x-merchant: {{nco_merchant}}
+x-channel: {{nco_channel}}
+
+{
+  "type": "person",
+  "givenName": "Demo",
+  "familyName": "User",
+  "email": "demo.user@example.com",
+  "streetAddress": "Demo Street 1",
+  "postalCode": "12345",
+  "city": "Stockholm",
+  "country": "SE",
+  "phone": "0701234567"
+}
+
+>>! ../mockdata/checkout-shipping.json
+
+### Checkout: Complete payment
+POST {{nco_base}}{{nco_nonpsp_adapter}}/api/checkout/v1/orders/{{orderId}}/payments/{{paymentId}}/complete
+Content-Type: application/json
+Authorization: {{nco_auth}}
+x-merchant: {{nco_merchant}}
+x-channel: {{nco_channel}}
+
+{}
+
+>>! ../mockdata/checkout-complete.json

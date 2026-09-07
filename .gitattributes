@@ -1,0 +1,3 @@
+# Normalise line endings in the repository and check out LF everywhere, so the
+# storefront -> main diff shows real changes rather than line-ending churn.
+* text=auto eol=lf
