@@ -1,0 +1,15 @@
+{
+  "paymentId": "pfwLhFoDPFBKtfJkSoVHDaMTIiT",
+  "paymentMethods": [
+    {
+      "identifier": "invoice"
+    },
+    {
+      "identifier": "aggregate-invoice"
+    },
+    {
+      "identifier": "account-credit"
+    }
+  ],
+  "selectedPaymentMethod": "invoice"
+}

@@ -20,7 +20,8 @@
       </div>
 
       <div class="left-col">
-          <section class="card product-info" style="min-width:260px">
+        
+        <section class="card product-info" style="min-width:260px">
           <h1>{{ currentItem?.Name }}</h1>
           <p class="subtitle">{{ currentItem?.SubHeader }}</p>
           <p class="text-sm mb-1">{{ $t('productPage.partNumber') }} {{ currentItem?.PartNo }}</p>
@@ -35,6 +36,7 @@
             </span>
           </div>
 
+          
           <p class="text-sm mb-1" style="color:#666">
             {{ $t('productPage.from') }} <slot name="fromPrice"></slot>
           </p>
@@ -63,10 +65,11 @@
             {{ $t('productPage.nextDelivery') }} {{ parseNorcedate(currentItem?.OnHand?.NextDeliveryDate, globalCulture) }}
           </p>
 
-          <p v-if="currentItem?.IsBuyable" class="text-sm" style="color:green;font-weight:600">
-            {{ $t('productPage.buyable') }}
-          </p>
+          <button class="btn primary mt-2" @click="handleAddToBasket" :disabled="!currentItem?.IsBuyable">
+            {{ $t('productPage.addToBasket') }}
+          </button>
         </section>
+        
 
         <PromoStrip :promos="promotions" />
 
@@ -89,10 +92,12 @@
             </div>
           </div>
         </section>
+        
       </div>
 
       <!-- Product gallery: hero image + thumbnail strip -->
       <div class="gallery right-col">
+        
         <div v-if="safeFiles[heroIndex]?.isVideo" class="hero-box">
           <div class="ratio-box">
             <iframe
@@ -180,6 +185,7 @@
                @click="swapGalleryImage(i)"/>
         </div>
       </div>
+      
     </section>
 
     <section class="card" style="margin-top: 20px;">
@@ -207,6 +213,7 @@
           {{ $t('productPage.downloadDataSheet') }}
         </button>
       </section>
+      
 
       <!-- Related products grid -->
       <section v-if="flatGroups.length" class="mt-8">
@@ -239,6 +246,7 @@
           </div>
         </div>
       </section>
+      
     </section>
   </main>
 
@@ -246,7 +254,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onUnmounted, provide, watch, inject, Ref } from 'vue'
+import { ref, computed, nextTick, onUnmounted, provide, watch, inject } from 'vue'
+import type { Ref } from 'vue'
 import PromoStrip from '@/components/PromoStrip.vue'
 import ProductCard from '@/components/ProductCard.vue'
 
@@ -274,6 +283,7 @@ const props = defineProps({
 
 const heroIndex = ref(0)
 const currentItem = computed<Product | null>(() => selectedVariant.value ?? product.value)
+
 
 function swapGalleryImage(i: number) {
   heroIndex.value = i
@@ -358,6 +368,7 @@ const video = computed(() =>
     ?? null
 )
 
+
 // Extract YouTube video ID and build privacy-friendly embed URL
 const embedUrl = computed(() => {
   const raw = video.value?.Path ?? ''
@@ -371,7 +382,8 @@ const embedUrl = computed(() => {
       ? `https://www.youtube-nocookie.com/embed/${id}?rel=0`
       : ''
 })
-// Build the gallery file list: main image first, then remaining images sorted, then video thumbnail
+
+
 const safeFiles = computed(() => {
   const list: any[] = []
 
@@ -380,19 +392,20 @@ const safeFiles = computed(() => {
   const mainKey = currentItem.value?.ImageKey ?? product.value?.ImageKey
   if (mainKey) list.push({Key: mainKey, isMain: true})
 
-  /* Remaining images sorted by SortOrder, skip duplicates */
+  /* Remaining images sorted by SortOrder */
   list.push(
       ...(pfiles.value || [])
           .filter(Boolean)
           .map((f: any) => ({...f, Key: f.Key ?? f.ImageKey ?? f.Name}))
           .filter(f => f.Key)
           .sort((a, b) => (a.SortOrder ?? 0) - (b.SortOrder ?? 0))
-          .filter(f => f.Key !== mainKey)
   )
 
   if (video.value) {
+    
     const rawUrl = video.value.Path ?? ''
 
+    
     let id = ''
     if (rawUrl.includes('youtu.be/')) {
       id = rawUrl.split('youtu.be/')[1].split(/[?&#]/)[0]
@@ -407,17 +420,27 @@ const safeFiles = computed(() => {
       list.push({
         Key: 'video',
         isVideo: true,
-        Thumb: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+        Thumb: `https://img.youtube.com/vi/${id}/hqdefault.jpg`, 
         VideoId: id
       })
     }
   }
-  return list
+  /* Norce can return the same file Key twice, and the main image usually also
+     appears in Files - both produced a repeated thumbnail and, in the viewer,
+     two identical slides with the counter claiming they were different. */
+  const seen = new Set<string>()
+  return list.filter(f => {
+    const key = String(f.Key)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 })
 
 const altHero = computed(() => getAlt(safeFiles.value[heroIndex.value], currentItem.value?.Name ?? product.value?.Name ?? ''))
 
-// Merge product-level and variant-level parametrics, deduplicate by Id, filter hidden ones
+
+
 const visibleParametrics = computed(() => {
   const root = product.value?.Parametrics ?? []
   const own  = selectedVariant.value?.Parametrics ?? []
@@ -428,13 +451,16 @@ const visibleParametrics = computed(() => {
       .sort((a, b) => a.GroupId - b.GroupId || a.SortOrder - b.SortOrder)
 })
 
-// Flatten relation groups — Norce may nest products under group.Products or group.Relations.Items
+
+// Flatten relation groups - Norce may nest products under group.Products or group.Relations.Items
 const flatGroups = computed(() =>
-    relations.value.map(g => ({
+    relations.value.map(g => ({ // Use relations ref from ProductPage
       ...g,
       Products: (g as any).Products ?? (g as any).Relations?.Items ?? []
     }))
 )
+
+
 
 const specGridFiles = computed(() => currentItem.value?.Files ?? product.value?.Files ?? [])
 
@@ -455,6 +481,7 @@ function downloadSpecSheet() {
   if (pdf) window.open(fileUrl(pdf), '_blank')
 }
 
+
 const currencyCode = computed(() => (currentItem.value as any)?.CurrencyCode || 'SEK')
 
 const fromPrice = computed(() => {
@@ -467,7 +494,6 @@ const vatAmount = computed(() => {
   return Math.max(0, currentItem.value.PriceIncVat - currentItem.value.Price)
 })
 
-// Build facets from VariantParametrics — these are the selectable options (Color, Size, etc.)
 type VariantFacet = { code: string; name: string; values: { key: string; name: string }[] }
 
 const variantFacets = computed<VariantFacet[]>(() => {
@@ -505,8 +531,6 @@ const hasVariantChoice = computed(() => {
 
 const selectedFacet = ref<Record<string, string>>({})
 
-// Determine which facet values are still selectable given current selections.
-// Only considers buyable variants: StatusId=1 (Active), IsBuyable=true, Price > 0.
 const availableFacetValues = computed(() => {
   const vs = (product.value?.Variants ?? []).filter(v =>
       v.StatusId === 1 && v.IsBuyable === true && (v.Price ?? 0) > 0
@@ -533,7 +557,6 @@ const availableFacetValues = computed(() => {
   return result
 })
 
-// Find the variant matching all selected facets, falling back to best partial match
 function applyVariantSelection() {
   const vs = product.value?.Variants ?? []
   const keys = Object.keys(selectedFacet.value)
@@ -566,6 +589,7 @@ function applyVariantSelection() {
   }
 }
 
+
 function setFacet(code: string, key: string) {
   if (availableFacetValues.value && availableFacetValues.value[code] && !availableFacetValues.value[code].has(key)) return
   const next = { ...(selectedFacet.value ?? {}) }
@@ -575,9 +599,23 @@ function setFacet(code: string, key: string) {
 }
 
 import api from '@/services/api';
+import { useBasket } from '@/composables/useBasket'
+import type { BasketItem } from '@/types'
 
-const globalCulture = inject('culture') as Ref<string>;
-const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
+const globalCulture = inject('culture') as Ref<string>; 
+const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>; 
+const { addItem } = useBasket()
+
+function handleAddToBasket() {
+  if (!currentItem.value) return
+  // PartNo and quantity only. The price list decides the price, server side -
+  // see toBasketItem() in bff/index.js.
+  addItem({
+    PartNo: currentItem.value.PartNo,
+    Quantity: 1,
+  } as BasketItem)
+}
+
 
 async function fetchProductData() {
   const errors = [];

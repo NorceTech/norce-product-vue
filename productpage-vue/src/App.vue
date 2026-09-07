@@ -5,8 +5,10 @@ import api, { setBffHealthCallback } from '@/services/api'
 import LanguageSelector from '@/components/LanguageSelector.vue'
 import { useCulture } from '@/composables/useCulture'
 import { setMediaClient } from '@/composables/useHelpers'
+import { useBasket } from '@/composables/useBasket'
+import CartDrawer from '@/components/CartDrawer.vue'
 
-// Debug overlay — shows API errors during development
+// Debug overlay - shows API errors during development
 type DebugError = { context: string; message: string };
 
 const visible = ref(false);
@@ -22,6 +24,9 @@ function closeDebugPopup() {
   errors.value = [];
 }
 
+// Provided as a plain object, so consumers call debugPopup.show(...) directly.
+// It used to be consumed as debugPopup.value.show(...), which silently did
+// nothing because .value was always undefined on a plain object.
 provide('debugPopup', {
   show: showDebugPopup,
 });
@@ -39,12 +44,15 @@ const cultures = ref<Culture[]>([]);
 const applicationName = ref<string>('');
 const { culture: globalCulture, updateCulture } = useCulture();
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
+const { itemCount, toggleDrawer, initFromStorage } = useBasket();
 
 onMounted(async () => {
   // Register BFF health callback
   setBffHealthCallback((status) => {
     bffStatus.value = status;
   });
+
+  await initFromStorage();
 
   try {
     const { data } = await api.getApplication();
@@ -65,8 +73,7 @@ onMounted(async () => {
         Code: c.Code ?? c.culture ?? c.code
       }));
 
-      // A culture remembered in localStorage may no longer exist on this
-      // application - fall back to the first one it does offer.
+      // Validate/Init culture
       const current = globalCulture.value;
       const valid = cultures.value.find(c => c.Code === current);
       if (!valid && cultures.value.length > 0) {
@@ -93,6 +100,10 @@ onMounted(async () => {
       <a href="/" class="brand">{{ applicationName || $t('header.brand') }}</a>
       <div class="right-content">
         <LanguageSelector :cultures="cultures" v-if="cultures.length > 0" />
+        <button class="cart-button" @click="toggleDrawer">
+          {{ $t('cart.button') }}
+          <span v-if="itemCount" class="cart-badge">{{ itemCount }}</span>
+        </button>
       </div>
     </div>
   </header>
@@ -102,6 +113,7 @@ onMounted(async () => {
   </div>
 
   <RouterView :key="globalCulture" />
+  <CartDrawer />
 
   <div v-if="visible" class="debug-popup">
     <div class="debug-popup-content">

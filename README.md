@@ -1,36 +1,37 @@
-# Norce Academy – Developer Fundamentals: Storefront
+# Norce Academy – Developer Fundamentals: Checkout
 
-A Vue 3 webshop storefront built on **Norce Commerce**, used as a training demo in the Norce Academy "Developer Fundamentals Storefront" course.
+A Vue 3 webshop storefront with checkout flow, built on **Norce Commerce**. Used as a training demo in the Norce Academy "Developer Fundamentals Checkout" course.
 
-The project demonstrates how to build a product browsing experience on top of the Norce Commerce Product and Metadata APIs using a Node.js BFF (Backend-for-Frontend) pattern.
+This project extends the storefront (product listing, filtering, product detail) with a **basket**, **Norce Checkout Order (NCO)**, and **non-PSP payment** flow.
 
 
 ## What You'll Learn
 
-This storefront covers the core topics of the course:
+This checkout demo builds on the storefront and adds:
 
-- **BFF pattern** — a lightweight Express server that proxies Norce Commerce API calls, handles OAuth2 authentication, and caches responses.
-- **Product listing** — fetching products with `ListProducts2`, applying filters with `ListProductFilters2`, and displaying flags with `ListFlags`.
-- **Product detail page** — loading a single product with `GetProductByUniqueName`, showing variant selection, image galleries, spec grids, and related products via `ListProductRelations`.
-- **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call.
-- **Mock data mode** — the BFF auto-detects missing credentials and serves local JSON files from `/mockdata`, so the demo runs without API access.
+- **Basket management** — add/update/remove items via the Norce Shopping Service, with client-side state management in a Vue composable (`useBasket`).
+- **Cart drawer** — slide-out cart UI with quantity editing and item removal.
+- **NCO integration** — initiate a checkout order, update billing/shipping, and handle the payment flow via Norce Checkout Order APIs.
+- **Non-PSP payment** — a simplified payment adapter that skips external payment providers, useful for B2B or invoice-based flows.
+- **All storefront features** — product listing with `ListProducts2`, filters with `ListProductFilters2`, product detail with `GetProductByUniqueName`, variant selection, multi-language support, and mock data mode.
 
 
 ## Project Structure
 
 ```
 ├── bff/                    # Node.js Express BFF
-│   ├── index.js            # All endpoints and OAuth logic
+│   ├── index.js            # All endpoints: products, basket, NCO
 │   └── .env.example        # Environment variable template
 ├── productpage-vue/        # Vue 3 frontend (Vite)
 │   └── src/
-│       ├── views/          # ProductListView, ProductPage
-│       ├── components/     # ProductCard, LanguageSelector, PromoStrip
-│       ├── composables/    # useCulture, useHelpers
+│       ├── views/          # ProductListView, ProductPage, CheckoutView
+│       ├── components/     # ProductCard, LanguageSelector, PromoStrip, CartDrawer
+│       ├── composables/    # useCulture, useHelpers, useBasket
 │       ├── services/       # api.ts — all BFF calls
-│       ├── types/          # TypeScript interfaces
+│       ├── types/          # TypeScript interfaces (incl. Basket types)
 │       └── locales/        # en.json, sv.json
 ├── mockdata/               # JSON fixtures for mock mode
+├── bff/mockBasket.js       # In-memory basket used in mock mode
 ├── run.ps1                 # PowerShell script to start everything
 └── fetchdata/              # HTTP files for refreshing mock data
 ```
@@ -50,6 +51,21 @@ This storefront covers the core topics of the course:
 
 This installs dependencies (if needed), starts both the BFF and the frontend, and opens `http://localhost:5173` in your browser. Press `Ctrl+C` to stop.
 
+To point the demo at another application and category without editing any file:
+
+```powershell
+.\run.ps1 -ApplicationId <your-application> -CategorySeed <your-root-category>
+.\run.ps1 -ApplicationId 1042 -CategorySeed 5
+```
+
+The arguments are exported as environment variables before the processes start.
+Neither `dotenv` nor Vite's `loadEnv` overrides a variable that is already in
+the environment, so they win over the `.env` files without touching them.
+
+Nothing else needs changing: the application id decides which tenant you reach —
+the API host serves them all on playground — and the images follow, because the
+frontend derives the media CDN from the client id in `GetApplication`.
+
 ### Option B: Manual Start
 
 **Terminal 1 — BFF:**
@@ -59,8 +75,10 @@ npm install
 npm run dev
 ```
 
-`npm run dev` runs the BFF under `node --watch`, so editing `index.js` reloads
-it — no manual restart. (`npm start` runs it without watching.)
+`npm run dev` runs the BFF under `node --watch`, so editing `index.js` or
+`mockBasket.js` reloads it — no manual restart. (`npm start` runs it without
+watching.) A reload resets the in-memory mock basket, so a cart you built up in
+mock mode empties when you edit the backend.
 
 The frontend needs no restart at all: Vite hot-reloads components, styles and
 translations. Two things it does not pick up, because they are only read at
@@ -121,11 +139,8 @@ Both `.env` files are gitignored.
 | `IDENTITY_PATH` | Token endpoint path | `/identity/1.0/connect/token` |
 | `PRODUCT_SERVICE` | Product service path | `/commerce/product/1.1` |
 | `METADATA_SERVICE` | Metadata service path | `/commerce/metadata/1.1` |
+| `SHOPPING_SERVICE` | Shopping service path | `/commerce/shopping/1.1` |
 | `LOG_REQUESTS` | Log incoming BFF requests | `true` |
-
-If `API_BASE`, `OAUTH_ID` or `OAUTH_SECRET` are missing, the BFF switches to
-mock mode. Setting `MOCK_DATA=false` without them does not silently serve
-fixtures — it prints a banner naming what is missing.
 
 Credentials do not have to be written into `.env`. The file supports variable
 expansion, so it can point at environment variables that already exist on your
@@ -145,29 +160,78 @@ not reach it.
 
 `APPLICATION_ID` and `CATEGORY_SEED` deliberately have no defaults. They decide
 which tenant and which slice of the catalogue the storefront shows, and a stale
-default produces an empty shop rather than an error.
+default produces an empty shop rather than an error. Setting `MOCK_DATA=false`
+without credentials does not silently serve fixtures either — the BFF prints a
+banner saying it fell back to mock mode and which variables are missing.
 
 ### Frontend (`productpage-vue/.env`)
 
 | Variable | Description | Default |
 |---|---|---|
-| `VITE_MEDIA_CDN_BASE` | Media CDN host for image and file keys | Norce Open Demo |
+| `VITE_MEDIA_CDN_HOST` | Media CDN environment | `https://media.playground.cdn-norce.tech` |
 
 Norce returns images and files as keys (GUIDs) — only external links (e.g.
-YouTube) come back with a `Path`. The host those keys hang off is
-client-specific:
+YouTube) come back with a `Path`. Media is served per client:
 
 ```
-playground:  https://<partner-slug>.playground.cdn-norce.tech/
-stage:       https://<client-slug>.stage.cdn-norce.tech/
-production:  https://<client-slug>.cdn-norce.tech/
+https://media.<environment>.cdn-norce.tech/<clientId>/<fileKey>
 ```
 
-Point this at the wrong client and every product image 404s while everything
-else looks fine.
+The client id is **not** configured. It comes from `GetApplication`
+(`Client.Id` — 1000 for Norce Open Demo, for instance), so switching
+`APPLICATION_ID` switches the images with it. Only the environment is a
+setting:
 
+```
+playground:  https://media.playground.cdn-norce.tech
+stage:       https://media.stage.cdn-norce.tech
+production:  https://media.cdn-norce.tech
+```
+
+The per-slug form (`https://<slug>.playground.cdn-norce.tech/<fileKey>`) serves
+the same files, but needs the tenant slug — which the storefront has no way to
+know from the application alone.
+
+Checkout (NCO) variables. The four marked **required** have no default: a
+tenant-specific fallback would silently point you at the wrong merchant or
+payment method, so the BFF warns at startup instead when they are missing.
+
+| Variable | Description | Default |
+|---|---|---|
+| `NCO_BASE` | NCO API base URL | — **required** |
+| `NCO_MERCHANT` | NCO merchant identifier | — **required** |
+| `NCO_CHANNEL` | NCO payment channel | — **required** |
+| `NCO_PAYMENT_METHOD_ID` | Payment method set on the basket | — **required** |
+| `NCO_DELIVERY_METHOD_ID` | Delivery method set on the basket | — (initiate may reject the order without it) |
+| `NCO_NORCE_ADAPTER` | NCO Norce adapter path | `/checkout/norce-adapter` |
+| `NCO_NONPSP_ADAPTER` | NCO non-PSP adapter path | `/checkout/nonpsp-adapter` |
+| `NCO_ORDER_API` | NCO Order API path | `/checkout/order` |
+| `NCO_TOKEN` | Pre-issued NCO bearer token (skips OAuth for NCO calls) | — |
+
+
+## Mock Mode
+
+If `API_BASE`, `OAUTH_ID` or `OAUTH_SECRET` are missing — or `MOCK_DATA=true` —
+the BFF serves local data and no Norce credentials are needed. This is the
+default first-run experience.
+
+- **Product data** comes from the JSON fixtures in `/mockdata`.
+- **The basket is real**, in the sense that it lives in memory in
+  `bff/mockBasket.js`. Add, change quantity and remove all work, totals are
+  recalculated, and the response mirrors the Shopping Service format — including
+  two things worth noticing: basket rows return `Price: 0` (the charged price is
+  `PriceDisplay` / `PriceDisplayIncVat`), and the basket contains a freight
+  **fee row** (`Type: 3`) alongside the product rows (`Type: 1`).
+- **The NCO checkout steps** are served from the `checkout-*.json` fixtures.
+  They return canned responses, so the payment flow can be walked through, but
+  no order is created. Exercising NCO for real needs live credentials.
+
+`mockdata/basket.json` is kept as reference documentation of a real `GetBasket`
+response; it is no longer served directly.
 
 ## BFF Endpoints
+
+### Product endpoints (same as storefront)
 
 | Endpoint | Norce API | Mock file |
 |---|---|---|
@@ -179,23 +243,47 @@ else looks fine.
 | `GET /api/flags` | `ListFlags` | `flags.json` |
 | `GET /api/application` | `GetApplication` (Metadata) | `cultures.json` |
 
-`/api/application` returns `{ Id, Name, Url, Cultures }`. It used to be
+`/api/application` returns `{ Id, Name, Url, ClientId, ClientName, Cultures }`. It used to be
 `/api/cultures` and threw away everything but the culture list — including
 `Name`, which is the storefront's own title and is what the header shows.
+
+### Basket endpoints
+
+Only `PartNo` and `Quantity` are accepted from the browser. Prices are never
+read from the request body — the price list decides the price, server side.
+
+| Endpoint | Norce API | Mock mode |
+|---|---|---|
+| `GET /api/basket/:basketId` | `GetBasket` | in-memory basket |
+| `POST /api/basket` | `CreateBasket` | in-memory basket |
+| `POST /api/basket/:basketId/items` | `InsertBasketItem` | in-memory basket |
+| `PUT /api/basket/:basketId/items/:itemId` | `UpdateBasketItem` | in-memory basket |
+| `DELETE /api/basket/:basketId/items/:lineNo` | `DeleteBasketItem` | in-memory basket |
+
+### Checkout endpoints (NCO)
+
+| Endpoint | NCO API | Mock file |
+|---|---|---|
+| `POST /api/checkout/initiate` | Initiate checkout order | `checkout-initiate.json` |
+| `POST /api/checkout/nonpsp/.../payments` | Create non-PSP payment | `checkout-payment.json` |
+| `PUT /api/checkout/nonpsp/.../payments/:id` | Update non-PSP payment | `checkout-payment.json` |
+| `POST /api/checkout/nonpsp/.../complete` | Complete payment | `checkout-complete.json` |
+| `PUT /api/checkout/orders/:id/customer/billing` | Update billing | `checkout-billing.json` |
+| `PUT /api/checkout/orders/:id/customer/shipping` | Update shipping | `checkout-shipping.json` |
 
 
 ## Branches
 
 One branch per course:
 
-- **`storefront`** — products, filtering, product detail and multi-language,
-  with no basket or checkout code (this branch). Used in
+- **`main`** — the full demo: products, filtering, product detail, basket, NCO
+  and non-PSP payment. Used in *Developer Fundamentals: Checkout*. This is the
+  default branch, so a plain clone gives you the checkout demo.
+- **`storefront`** — products, filtering, product detail and multi-language
+  only, with no basket or checkout code. Used in
   *Developer Fundamentals: Storefront*.
-- **`main`** — the full demo, adding basket, NCO (Norce Checkout Order) and
-  non-PSP payment. Used in *Developer Fundamentals: Checkout*, and the default
-  branch.
 
-`main` is the default, so remember to check this branch out:
+For the storefront course:
 
 ```bash
 git clone https://github.com/NorceTech/norce-product-vue.git

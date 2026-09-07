@@ -1,6 +1,6 @@
 // API client for the BFF. All calls go through /api/* on the same origin.
 // An Axios interceptor appends the current culture to every GET request
-// (except /cultures itself, which is needed to determine available cultures).
+// (except /application itself, which is what tells us the available cultures).
 
 import axios from 'axios';
 
@@ -13,7 +13,7 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(config => {
   if (config.method === 'get' && config.url && !config.url.includes('/application')) {
-    config.params = {
+            config.params = {
       ...config.params,
       culture: currentCulture,
     };
@@ -21,7 +21,7 @@ apiClient.interceptors.request.use(config => {
   return config;
 });
 
-// Track BFF health — shows a warning banner in App.vue on network/500 errors
+// Track BFF health - shows a warning banner in App.vue on network/500 errors
 apiClient.interceptors.response.use(
   response => {
     if (bffHealthCallback) {
@@ -70,5 +70,38 @@ export default {
   },
   getApplication() {
     return apiClient.get('/application');
+  },
+  getBasket(basketId: string | number) {
+    return apiClient.get(`/basket/${basketId}`);
+  },
+  createBasket(payload: any) {
+    return apiClient.post('/basket', payload);
+  },
+  addBasketItem(basketId: string | number, payload: any) {
+    return apiClient.post(`/basket/${basketId}/items`, payload);
+  },
+  updateBasketItem(basketId: string | number, itemId: string | number, payload: any) {
+    return apiClient.put(`/basket/${basketId}/items/${itemId}`, payload);
+  },
+  deleteBasketItem(basketId: string | number, lineNo: string | number, params?: any) {
+    return apiClient.delete(`/basket/${basketId}/items/${lineNo}`, { params });
+  },
+  initiateCheckout(payload: any) {
+    return apiClient.post('/checkout/initiate', payload);
+  },
+  createNonPspPayment(orderId: string, payload?: any) {
+    return apiClient.post(`/checkout/nonpsp/orders/${orderId}/payments`, payload ?? {});
+  },
+  updateNonPspPayment(orderId: string, paymentId: string, payload: any) {
+    return apiClient.put(`/checkout/nonpsp/orders/${orderId}/payments/${paymentId}`, payload);
+  },
+  completeNonPspPayment(orderId: string, paymentId: string) {
+    return apiClient.post(`/checkout/nonpsp/orders/${orderId}/payments/${paymentId}/complete`);
+  },
+  updateCheckoutBilling(orderId: string, payload: any) {
+    return apiClient.put(`/checkout/orders/${orderId}/customer/billing`, payload);
+  },
+  updateCheckoutShipping(orderId: string, payload: any) {
+    return apiClient.put(`/checkout/orders/${orderId}/customer/shipping`, payload);
   },
 };
