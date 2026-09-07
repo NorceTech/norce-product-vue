@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import ProductPage from '../views/ProductPage.vue';
 import ProductListView from '../views/ProductListView.vue';
+import CheckoutView from '../views/CheckoutView.vue';
 
 const routes = [
   {
@@ -13,6 +14,11 @@ const routes = [
     name: 'ProductPage',
     component: ProductPage,
     props: true,
+  },
+  {
+    path: '/checkout',
+    name: 'CheckoutView',
+    component: CheckoutView,
   },
 ];
 

@@ -2,3 +2,4 @@ export type { Product, Manufacturer, FileItem, Parametric, Inventory, Category }
 export type { Promotion, ProductFilter } from './Promotion'
 export type { RelationGroup, RelationMetadata, RelatedProduct } from './Relations'
 export type { Flag } from './Flag'
+export type { Basket, BasketItem, BasketSummary, BasketAmount } from './Basket'
