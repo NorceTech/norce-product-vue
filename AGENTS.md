@@ -11,10 +11,19 @@ Technical reference for AI agents working on this codebase.
 
 ## Branches
 
-- **`main`** — full demo incl. basket, NCO and non-PSP payment (*Developer Fundamentals: Checkout*). Default branch.
 - **`storefront`** — storefront only, no basket/checkout code (*Developer Fundamentals: Storefront*).
+- **`main`** — that same base plus basket, NCO and non-PSP payment (*Developer Fundamentals: Checkout*). Default branch.
 
-Changes to shared code (BFF product endpoints, `ProductCard`, `useHelpers`, types, locales) need porting to `storefront` separately — the branches have diverged before.
+**`storefront` is the base and `main` is built on top of it.** `git diff storefront main` is therefore exactly what checkout adds, and that diff is something the lessons ask participants to read — so it has to stay honest.
+
+**Shared code is changed on `storefront`, and then `storefront` is merged into `main`.** Do not port a shared change to each branch separately. Two hand-kept-identical commits read fine right up until they differ by one line, and from then on the storefront-only change shows up as a *deletion* in the checkout diff. Merging keeps `storefront` an ancestor of `main`, so the relationship holds by construction instead of by discipline. Shared code here means the BFF product endpoints, `ProductCard`, `useHelpers`, the types and the locales.
+
+Two consequences of that rule:
+
+- **Everything on `storefront` is merged into `main` eventually.** A commit deliberately left unmerged breaks the ancestry, which is why this section is worded identically on both branches instead of saying "this branch".
+- **Files that legitimately differ per branch** — the READMEs, and the parts of this file that describe checkout — are resolved in `main`'s favour during that merge. They still differ in content; `main` simply carries the later commit. The ancestry is about commits, not about files being identical.
+
+Check the relationship with `git merge-base --is-ancestor storefront main`, which must succeed.
 
 ## Key Conventions
 
