@@ -1,19 +1,24 @@
 <#
-   Run:  .\run.ps1 [-SkipInstall] [-ApplicationId <id>] [-CategorySeed <id>]
+   Run:  .\run.ps1 [-SkipInstall] [-a <id>] [-c <id>] [-s <slug>] [-e <environment>]
 
    - Installs npm packages in bff/ and productpage-vue/ when node_modules is missing
    - Warns when bff\.env is missing
    - Starts the BFF (http://localhost:3000) and the frontend (http://localhost:5173)
 
    Examples:
-     .\run.ps1                                       # whatever bff\.env says
-     .\run.ps1 -ApplicationId <your-app> -CategorySeed <your-root-category>
-     .\run.ps1 -ApplicationId 1042 -CategorySeed 5   # Norce Open Demo
+     .\run.ps1                              # whatever bff\.env says
+     .\run.ps1 -a 1042 -c 5                 # Norce Open Demo on playground
+     .\run.ps1 -a <your-app> -c <your-root-category>
+     .\run.ps1 -a 1234 -c 7 -e stage        # same slug, stage instead
+     .\run.ps1 -a 1234 -c 7 -s acme -e prod # a single-tenant customer
 
    The arguments are set as environment variables before the processes start.
    Neither dotenv nor Vite's loadEnv overrides a variable that is already in the
    environment, so what is passed here wins over the .env files without touching
    them.
+
+   Passing an application or a host also selects live mode, because asking for a
+   specific tenant and being served the fixtures is never what was meant.
 #>
 
 param(
@@ -22,10 +27,25 @@ param(
     # Norce application id. The application id decides which tenant you reach,
     # not the host name - the same API host answers with the right tenant's
     # data, and the image CDN follows via the client id from GetApplication.
+    [Alias('a')]
     [int]$ApplicationId,
 
     # Root category that the product list and the filters are scoped to.
-    [int]$CategorySeed
+    [Alias('c')]
+    [int]$CategorySeed,
+
+    # Tenant slug in the API host name. Defaults to the multi-tenant
+    # `norcecommerce` slug, which reaches most tenants because the application
+    # id selects the tenant. Single-tenant customers have their own deployment
+    # and have to be named here.
+    [Alias('s')]
+    [string]$Slug,
+
+    # Which environment to reach. Production has no environment segment in the
+    # host name, which is why this is a set rather than free text.
+    [Alias('e')]
+    [ValidateSet('playground', 'stage', 'prod')]
+    [string]$Environment
 )
 
 $ErrorActionPreference = "Stop"
@@ -130,12 +150,60 @@ if (-not (Test-Path $envFile)) {
 if ($ApplicationId) { $env:APPLICATION_ID = "$ApplicationId" }
 if ($CategorySeed)  { $env:CATEGORY_SEED  = "$CategorySeed" }
 
-if ($ApplicationId -or $CategorySeed) {
+# -Slug and -Environment compose the API host. Production has no environment
+# segment: <slug>.api-se.norce.tech rather than <slug>.api-se.<env>.norce.tech.
+$apiHost = $null
+if ($Slug -or $Environment) {
+    $hostSlug = if ($Slug) { $Slug } else { 'norcecommerce' }
+    $hostEnv  = if ($Environment) { $Environment } else { 'playground' }
+
+    $apiHost = if ($hostEnv -eq 'prod') {
+        "https://$hostSlug.api-se.norce.tech"
+    } else {
+        "https://$hostSlug.api-se.$hostEnv.norce.tech"
+    }
+
+    $env:API_BASE = $apiHost
+
+    # Norce Checkout has its own base URL but lives on the same host. Moving one
+    # without the other puts Commerce and Checkout in different environments,
+    # which fails deep inside the order flow instead of at startup. The
+    # storefront branch has no checkout code and ignores this variable.
+    $env:NCO_BASE = $apiHost
+
+    # The identity scope follows the environment. Stage is mid-rename from `lab`
+    # to `stage` in Norce, so that one is left to bff\.env rather than guessed.
+    if ($hostEnv -eq 'playground') { $env:OAUTH_SCOPE = 'playground' }
+    if ($hostEnv -eq 'prod')       { $env:OAUTH_SCOPE = 'prod' }
+}
+
+# Asking for a tenant or a host means asking for live data. The BFF cannot make
+# this call itself: by the time index.js reads process.env, a value from the
+# command line and one from bff\.env look identical, so the precedence has to be
+# applied here, where the command line is still visible.
+if ($ApplicationId -or $Slug -or $Environment) { $env:MOCK_DATA = 'false' }
+
+if ($ApplicationId -or $CategorySeed -or $apiHost) {
     Write-Host ""
     Write-Host "Overridden from the command line:" -ForegroundColor Cyan
     if ($ApplicationId) { Write-Host "   APPLICATION_ID = $ApplicationId" -ForegroundColor Cyan }
     if ($CategorySeed)  { Write-Host "   CATEGORY_SEED  = $CategorySeed"  -ForegroundColor Cyan }
+    if ($apiHost)       { Write-Host "   API_BASE       = $apiHost"       -ForegroundColor Cyan }
+    if ($apiHost)       { Write-Host "   NCO_BASE       = $apiHost"       -ForegroundColor Cyan }
+    Write-Host "   MOCK_DATA      = false (a tenant was named)" -ForegroundColor Cyan
     Write-Host ""
+
+    if ($Environment -eq 'stage') {
+        Write-Host "OAUTH_SCOPE is left as bff\.env has it - Norce is renaming the stage scope" -ForegroundColor Yellow
+        Write-Host "from 'lab' to 'stage', so check which one your credentials expect." -ForegroundColor Yellow
+        Write-Host ""
+    }
+
+    if ($Environment -eq 'prod') {
+        Write-Host "Production. Reads are reads, but the checkout flow on the main branch writes:" -ForegroundColor Yellow
+        Write-Host "it creates baskets and initiates NCO orders in whatever tenant it is pointed at." -ForegroundColor Yellow
+        Write-Host ""
+    }
 }
 
 # --- Install dependencies when needed ---------------------------------

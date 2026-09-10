@@ -50,6 +50,30 @@ This storefront covers the core topics of the course:
 
 This installs dependencies (if needed), starts both the BFF and the frontend, and opens `http://localhost:5173` in your browser. Press `Ctrl+C` to stop.
 
+Four switches point it somewhere else without editing a file, each with a short form:
+
+| Switch | | Meaning |
+|---|---|---|
+| `-ApplicationId` | `-a` | Which application (storefront) to show |
+| `-CategorySeed` | `-c` | Root category the product list is scoped to |
+| `-Slug` | `-s` | Tenant slug in the API host name |
+| `-Environment` | `-e` | `playground`, `stage` or `prod` |
+
+```powershell
+.\run.ps1 -a 1042 -c 5                 # Norce Open Demo on playground
+.\run.ps1 -a 1234 -c 7 -e stage        # same slug, stage instead
+.\run.ps1 -a 1234 -c 7 -s acme -e prod # a single-tenant customer
+```
+
+`-s` defaults to the multi-tenant `norcecommerce` slug and `-e` to `playground`.
+The application id is what selects the tenant, so the neutral slug reaches most
+of them — single-tenant customers have their own deployment and need `-s`.
+
+**Naming a tenant or a host also selects live mode.** Asking for application 1234
+and being served the Open Demo fixtures is never what was meant, so these
+switches set `MOCK_DATA=false`. If the credentials are not in place, the BFF says
+what is missing and stops rather than falling back to the fixtures.
+
 ### Option B: Manual Start
 
 **Terminal 1 — BFF:**
