@@ -1,7 +1,8 @@
 // BFF (Backend-for-Frontend) for the Norce Academy Storefront demo.
 // Proxies Norce Commerce API calls, handles OAuth2 authentication,
-// and caches responses. Falls back to local JSON mock data when
-// API credentials are not configured.
+// and caches responses. Serves the local JSON fixtures in /mockdata only when
+// MOCK_DATA=true; incomplete live configuration is a startup error rather than
+// a quiet fall back to fixtures of another tenant.
 
 // dotenv-expand lets .env reference other environment variables, e.g.
 //   OAUTH_ID="${MY_CLIENT_ID}"
