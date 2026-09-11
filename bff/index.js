@@ -47,35 +47,42 @@ const apiConfig = {
 };
 
 
-const useMockData = process.env.MOCK_DATA === 'true' || !apiConfig.api_base || !apiConfig.oauth_id || !apiConfig.oauth_secret;
+// Mock mode is asked for, never fallen into. Missing credentials used to send
+// the BFF here silently, which meant `run.ps1 -a <id>` served the Norce Open
+// Demo fixtures instead of the application that was asked for - a working
+// storefront showing the wrong tenant, which is worse than an error.
+const useMockData = process.env.MOCK_DATA === 'true';
 
 if (useMockData) {
-    // Asking for live mode and not getting it is a misconfiguration, not a
-    // happy fallback - say so loudly rather than quietly serving fixtures.
-    if (process.env.MOCK_DATA === 'false') {
-        const missing = [
-            ['API_BASE', apiConfig.api_base],
-            ['OAUTH_ID', apiConfig.oauth_id],
-            ['OAUTH_SECRET', apiConfig.oauth_secret]
-        ].filter((entry) => !entry[1]).map((entry) => entry[0]);
-
-        console.warn('='.repeat(70));
-        console.warn(`[CONFIG] MOCK_DATA=false, but falling back to MOCK MODE: ${missing.join(', ')} not set.`);
-        console.warn('[CONFIG] Fill these in bff/.env to reach the live Norce APIs.');
-        console.warn('='.repeat(70));
+    console.log('BFF is running in mock data mode (MOCK_DATA=true).');
+    console.log('Product data is served from /mockdata, which is a capture of Norce Open Demo.');
+    if (apiConfig.application_id && apiConfig.application_id !== '1042') {
+        console.log(`[CONFIG] APPLICATION_ID is ${apiConfig.application_id}, but mock mode does not call Norce, so it has no effect.`);
     }
-
-    console.log('BFF is running in mock data mode.');
 } else {
-    const missingCore = ['API_BASE', 'APPLICATION_ID', 'CATEGORY_SEED']
-        .filter((name) => !process.env[name]);
+    const missing = [
+        ['API_BASE', apiConfig.api_base],
+        ['OAUTH_ID', apiConfig.oauth_id],
+        ['OAUTH_SECRET', apiConfig.oauth_secret],
+        ['APPLICATION_ID', apiConfig.application_id],
+        ['CATEGORY_SEED', apiConfig.category_seed]
+    ].filter((entry) => !entry[1]).map((entry) => entry[0]);
 
-    if (missingCore.length) {
-        console.error(`[CONFIG] Missing required settings: ${missingCore.join(', ')}`);
-        console.error('[CONFIG] Product endpoints will fail. See bff/.env.example.');
-    } else {
-        console.log(`[CONFIG] Live mode: application ${apiConfig.application_id}, root category ${apiConfig.category_seed}, ${apiConfig.api_base}`);
+    if (missing.length) {
+        console.error('='.repeat(70));
+        console.error('[CONFIG] Live mode, but the configuration is incomplete.');
+        console.error(`[CONFIG] Not set: ${missing.join(', ')}`);
+        if (apiConfig.application_id) {
+            console.error(`[CONFIG] APPLICATION_ID ${apiConfig.application_id} says which tenant to read, but not`);
+            console.error('[CONFIG] where to reach it or with what credentials. It cannot stand in for the rest.');
+        }
+        console.error('[CONFIG] Copy bff/.env.example to bff/.env and fill it in, or set MOCK_DATA=true');
+        console.error('[CONFIG] to work from the fixtures on purpose.');
+        console.error('='.repeat(70));
+        process.exit(1);
     }
+
+    console.log(`[CONFIG] Live mode: application ${apiConfig.application_id}, root category ${apiConfig.category_seed}, ${apiConfig.api_base}`);
 }
 
 const dataDir = path.join(__dirname, '../mockdata');
