@@ -51,20 +51,36 @@ This checkout demo builds on the storefront and adds:
 
 This installs dependencies (if needed), starts both the BFF and the frontend, and opens `http://localhost:5173` in your browser. Press `Ctrl+C` to stop.
 
-To point the demo at another application and category without editing any file:
+Four switches point it somewhere else without editing a file, each with a short form:
+
+| Switch | | Meaning |
+|---|---|---|
+| `-ApplicationId` | `-a` | Which application (storefront) to show |
+| `-CategorySeed` | `-c` | Root category the product list is scoped to |
+| `-Slug` | `-s` | Tenant slug in the API host name |
+| `-Environment` | `-e` | `playground`, `stage` or `prod` |
 
 ```powershell
-.\run.ps1 -ApplicationId <your-application> -CategorySeed <your-root-category>
-.\run.ps1 -ApplicationId 1042 -CategorySeed 5
+.\run.ps1 -a 1042 -c 5                 # Norce Open Demo on playground
+.\run.ps1 -a 1234 -c 7 -e stage        # same slug, stage instead
+.\run.ps1 -a 1234 -c 7 -s acme -e prod # a single-tenant customer
 ```
 
-The arguments are exported as environment variables before the processes start.
-Neither `dotenv` nor Vite's `loadEnv` overrides a variable that is already in
-the environment, so they win over the `.env` files without touching them.
+`-s` defaults to the multi-tenant `norcecommerce` slug and `-e` to `playground`.
+The application id is what selects the tenant, so the neutral slug reaches most
+of them — single-tenant customers have their own deployment and need `-s`.
 
-Nothing else needs changing: the application id decides which tenant you reach —
-the API host serves them all on playground — and the images follow, because the
-frontend derives the media CDN from the client id in `GetApplication`.
+**Naming a tenant or a host also selects live mode.** Asking for application 1234
+and being served the Open Demo fixtures is never what was meant, so these
+switches set `MOCK_DATA=false`. If the credentials are not in place, the BFF says
+what is missing and stops rather than falling back to the fixtures.
+
+The images follow the tenant on their own: the frontend derives the media CDN
+host from the client id in `GetApplication`, so there is nothing else to change.
+
+**Checkout writes.** The basket and NCO endpoints create rows in whatever tenant
+the BFF is pointed at, so the switch that changes tenant also decides where an
+order attempt lands. Live mode says so at startup.
 
 ### Option B: Manual Start
 
