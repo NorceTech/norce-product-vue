@@ -13,7 +13,7 @@ This storefront covers the core topics of the course:
 - **Product listing** — fetching products with `ListProducts2`, applying filters with `ListProductFilters2`, and displaying flags with `ListFlags`.
 - **Product detail page** — loading a single product with `GetProductByUniqueName`, showing variant selection, image galleries, spec grids, and related products via `ListProductRelations`.
 - **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call.
-- **Mock data mode** — the BFF auto-detects missing credentials and serves local JSON files from `/mockdata`, so the demo runs without API access.
+- **Mock data mode** — with `MOCK_DATA=true` the BFF serves local JSON files from `/mockdata`, so the demo runs without API access. `run.ps1` sets it for you when there is no `bff/.env` yet.
 
 
 ## Project Structure
@@ -52,7 +52,7 @@ This installs dependencies (if needed), starts both the BFF and the frontend, an
 
 Four switches point it somewhere else without editing a file, each with a short form:
 
-| Switch | | Meaning |
+| Switch | Short form | Meaning |
 |---|---|---|
 | `-ApplicationId` | `-a` | Which application (storefront) to show |
 | `-CategorySeed` | `-c` | Root category the product list is scoped to |
@@ -135,7 +135,7 @@ Both `.env` files are gitignored.
 
 | Variable | Description | Default |
 |---|---|---|
-| `MOCK_DATA` | Force mock mode (`true`/`false`) | auto-detected |
+| `MOCK_DATA` | Serve the fixtures instead of calling Norce | `false` |
 | `API_BASE` | Norce API base URL — `<slug>.api-<region>.playground.norce.tech` | — **required** |
 | `OAUTH_ID` | OAuth2 client ID | — **required** |
 | `OAUTH_SECRET` | OAuth2 client secret | — **required** |
@@ -147,9 +147,10 @@ Both `.env` files are gitignored.
 | `METADATA_SERVICE` | Metadata service path | `/commerce/metadata/1.1` |
 | `LOG_REQUESTS` | Log incoming BFF requests | `true` |
 
-If `API_BASE`, `OAUTH_ID` or `OAUTH_SECRET` are missing, the BFF switches to
-mock mode. Setting `MOCK_DATA=false` without them does not silently serve
-fixtures — it prints a banner naming what is missing.
+Mock mode is only ever entered on purpose. If `MOCK_DATA` is not `true` and any
+of `API_BASE`, `OAUTH_ID`, `OAUTH_SECRET`, `APPLICATION_ID` or `CATEGORY_SEED`
+is missing, the BFF names what is absent and stops — it does not fall back to
+fixtures of another tenant, which used to look like success.
 
 Credentials do not have to be written into `.env`. The file supports variable
 expansion, so it can point at environment variables that already exist on your
@@ -175,7 +176,7 @@ default produces an empty shop rather than an error.
 
 | Variable | Description | Default |
 |---|---|---|
-| `VITE_MEDIA_CDN_BASE` | Media CDN host for image and file keys | Norce Open Demo |
+| `VITE_MEDIA_CDN_HOST` | Media CDN host for image and file keys | playground |
 
 Norce returns images and files as keys (GUIDs) — only external links (e.g.
 YouTube) come back with a `Path`. The host those keys hang off is

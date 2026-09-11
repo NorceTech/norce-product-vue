@@ -123,16 +123,33 @@ $fePath  = Join-Path $root "productpage-vue"
 # --- .env check for the BFF -------------------------------------------
 $envFile = Join-Path $bffPath ".env"
 $envExample = Join-Path $bffPath ".env.example"
+$namesATarget = $ApplicationId -or $Slug -or $Environment
+
 if (-not (Test-Path $envFile)) {
+    # The BFF only ever enters mock mode when MOCK_DATA=true, so a fresh clone
+    # with no .env would otherwise exit at the configuration check. Asking for
+    # the fixtures on its behalf keeps `git clone` + `.\run.ps1` working, and
+    # saying so out loud keeps mock mode something that was chosen rather than
+    # something that happened. Naming a tenant means the opposite was meant, so
+    # that case is left to fail with the BFF's own message.
+    if (-not $namesATarget) { $env:MOCK_DATA = 'true' }
+
     Write-Host ""
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-    Write-Host "  'bff\.env' is missing — the BFF starts in MOCK mode." -ForegroundColor Yellow
-    Write-Host "  Product data comes from the local JSON files in /mockdata." -ForegroundColor Yellow
+    if ($namesATarget) {
+        Write-Host "  'bff\.env' is missing, and a tenant was named on the command line." -ForegroundColor Yellow
+        Write-Host "  The BFF needs API_BASE, OAUTH_ID and OAUTH_SECRET to reach it," -ForegroundColor Yellow
+        Write-Host "  and will say so and stop." -ForegroundColor Yellow
+    } else {
+        Write-Host "  'bff\.env' is missing, so MOCK_DATA=true was set for this run." -ForegroundColor Yellow
+        Write-Host "  Product data comes from the local JSON files in /mockdata," -ForegroundColor Yellow
+        Write-Host "  which are a capture of Norce Open Demo." -ForegroundColor Yellow
+    }
     Write-Host "" -ForegroundColor Yellow
     Write-Host "  To use the real Norce APIs:" -ForegroundColor Yellow
     Write-Host "    1. Copy the example file:  cp bff\.env.example bff\.env" -ForegroundColor White
     Write-Host "    2. Fill in your Norce OAuth credentials (OAUTH_ID, OAUTH_SECRET)" -ForegroundColor White
-    Write-Host "    3. Set MOCK_DATA=false (or remove the line)" -ForegroundColor White
+    Write-Host "    3. Set MOCK_DATA=false" -ForegroundColor White
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
     Write-Host ""
 } else {
@@ -171,6 +188,16 @@ if ($Slug -or $Environment) {
     # storefront branch has no checkout code and ignores this variable.
     $env:NCO_BASE = $apiHost
 
+    # Images come from a third host, which Vite reads on its own. Leaving it
+    # behind gives working API calls and 404 on every product image - the kind
+    # of half-switched state that looks like a data problem.
+    $mediaHost = if ($hostEnv -eq 'prod') {
+        "https://media.cdn-norce.tech"
+    } else {
+        "https://media.$hostEnv.cdn-norce.tech"
+    }
+    $env:VITE_MEDIA_CDN_HOST = $mediaHost
+
     # The identity scope follows the environment. Stage is mid-rename from `lab`
     # to `stage` in Norce, so that one is left to bff\.env rather than guessed.
     if ($hostEnv -eq 'playground') { $env:OAUTH_SCOPE = 'playground' }
@@ -181,16 +208,19 @@ if ($Slug -or $Environment) {
 # this call itself: by the time index.js reads process.env, a value from the
 # command line and one from bff\.env look identical, so the precedence has to be
 # applied here, where the command line is still visible.
-if ($ApplicationId -or $Slug -or $Environment) { $env:MOCK_DATA = 'false' }
+if ($namesATarget) { $env:MOCK_DATA = 'false' }
 
 if ($ApplicationId -or $CategorySeed -or $apiHost) {
     Write-Host ""
     Write-Host "Overridden from the command line:" -ForegroundColor Cyan
-    if ($ApplicationId) { Write-Host "   APPLICATION_ID = $ApplicationId" -ForegroundColor Cyan }
-    if ($CategorySeed)  { Write-Host "   CATEGORY_SEED  = $CategorySeed"  -ForegroundColor Cyan }
-    if ($apiHost)       { Write-Host "   API_BASE       = $apiHost"       -ForegroundColor Cyan }
-    if ($apiHost)       { Write-Host "   NCO_BASE       = $apiHost"       -ForegroundColor Cyan }
-    Write-Host "   MOCK_DATA      = false (a tenant was named)" -ForegroundColor Cyan
+    if ($ApplicationId) { Write-Host "   APPLICATION_ID       = $ApplicationId" -ForegroundColor Cyan }
+    if ($CategorySeed)  { Write-Host "   CATEGORY_SEED        = $CategorySeed"  -ForegroundColor Cyan }
+    if ($apiHost)       { Write-Host "   API_BASE             = $apiHost"       -ForegroundColor Cyan }
+    if ($apiHost)       { Write-Host "   NCO_BASE             = $apiHost"       -ForegroundColor Cyan }
+    if ($mediaHost)     { Write-Host "   VITE_MEDIA_CDN_HOST  = $mediaHost"     -ForegroundColor Cyan }
+    # Only when a tenant or host was actually named: -c alone changes the slice
+    # of the catalogue, not which tenant, and must not claim otherwise.
+    if ($namesATarget)  { Write-Host "   MOCK_DATA            = false (a tenant was named)" -ForegroundColor Cyan }
     Write-Host ""
 
     if ($Environment -eq 'stage') {
