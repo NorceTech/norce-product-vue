@@ -50,6 +50,41 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Everything this script sets has to reach the BFF and Vite, which inherit the
+# environment when they are started - but `$env:` belongs to the PowerShell
+# process, not to the script, so those values would outlive the run and leak
+# into the next one in the same terminal. That matters most for the person who
+# follows the setup banner: a zero-config run would leave MOCK_DATA=true behind,
+# and the next run, with a freshly written live bff\.env, would still serve the
+# fixtures - dotenv does not override an inherited variable. A tenant chosen
+# with -a would stick the same way.
+#
+# So record the previous value the first time each name is set, and put it back
+# once both processes have started. They inherit at spawn time, so restoring
+# afterwards takes nothing away from them.
+$launcherEnv = @{}
+
+function Set-LauncherEnv {
+    param([string]$name, [string]$value)
+
+    if (-not $launcherEnv.ContainsKey($name)) {
+        $launcherEnv[$name] = [Environment]::GetEnvironmentVariable($name)
+    }
+    Set-Item -Path "env:$name" -Value $value
+}
+
+function Restore-LauncherEnv {
+    foreach ($name in @($launcherEnv.Keys)) {
+        $previous = $launcherEnv[$name]
+        if ($null -eq $previous) {
+            Remove-Item -Path "env:$name" -ErrorAction SilentlyContinue
+        } else {
+            Set-Item -Path "env:$name" -Value $previous
+        }
+    }
+    $launcherEnv.Clear()
+}
+
 function Assert-Tool {
     param([string]$name, [string]$versionArg = "--version")
     try {
@@ -132,7 +167,7 @@ if (-not (Test-Path $envFile)) {
     # saying so out loud keeps mock mode something that was chosen rather than
     # something that happened. Naming a tenant means the opposite was meant, so
     # that case is left to fail with the BFF's own message.
-    if (-not $namesATarget) { $env:MOCK_DATA = 'true' }
+    if (-not $namesATarget) { Set-LauncherEnv 'MOCK_DATA' 'true' }
 
     Write-Host ""
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
@@ -164,8 +199,8 @@ if (-not (Test-Path $envFile)) {
 }
 
 # --- Command-line overrides -------------------------------------------
-if ($ApplicationId) { $env:APPLICATION_ID = "$ApplicationId" }
-if ($CategorySeed)  { $env:CATEGORY_SEED  = "$CategorySeed" }
+if ($ApplicationId) { Set-LauncherEnv 'APPLICATION_ID' "$ApplicationId" }
+if ($CategorySeed)  { Set-LauncherEnv 'CATEGORY_SEED'  "$CategorySeed" }
 
 # -Slug and -Environment compose the API host. Production has no environment
 # segment: <slug>.api-se.norce.tech rather than <slug>.api-se.<env>.norce.tech.
@@ -180,13 +215,13 @@ if ($Slug -or $Environment) {
         "https://$hostSlug.api-se.$hostEnv.norce.tech"
     }
 
-    $env:API_BASE = $apiHost
+    Set-LauncherEnv 'API_BASE' $apiHost
 
     # Norce Checkout has its own base URL but lives on the same host. Moving one
     # without the other puts Commerce and Checkout in different environments,
     # which fails deep inside the order flow instead of at startup. The
     # storefront branch has no checkout code and ignores this variable.
-    $env:NCO_BASE = $apiHost
+    Set-LauncherEnv 'NCO_BASE' $apiHost
 
     # Images come from a third host, which Vite reads on its own. Leaving it
     # behind gives working API calls and 404 on every product image - the kind
@@ -196,19 +231,19 @@ if ($Slug -or $Environment) {
     } else {
         "https://media.$hostEnv.cdn-norce.tech"
     }
-    $env:VITE_MEDIA_CDN_HOST = $mediaHost
+    Set-LauncherEnv 'VITE_MEDIA_CDN_HOST' $mediaHost
 
     # The identity scope follows the environment. Stage is mid-rename from `lab`
     # to `stage` in Norce, so that one is left to bff\.env rather than guessed.
-    if ($hostEnv -eq 'playground') { $env:OAUTH_SCOPE = 'playground' }
-    if ($hostEnv -eq 'prod')       { $env:OAUTH_SCOPE = 'prod' }
+    if ($hostEnv -eq 'playground') { Set-LauncherEnv 'OAUTH_SCOPE' 'playground' }
+    if ($hostEnv -eq 'prod')       { Set-LauncherEnv 'OAUTH_SCOPE' 'prod' }
 }
 
 # Asking for a tenant or a host means asking for live data. The BFF cannot make
 # this call itself: by the time index.js reads process.env, a value from the
 # command line and one from bff\.env look identical, so the precedence has to be
 # applied here, where the command line is still visible.
-if ($namesATarget) { $env:MOCK_DATA = 'false' }
+if ($namesATarget) { Set-LauncherEnv 'MOCK_DATA' 'false' }
 
 if ($ApplicationId -or $CategorySeed -or $apiHost) {
     Write-Host ""
@@ -246,6 +281,10 @@ Ensure-NpmDeps -projPath $fePath
 # hand. Note that a reload resets the in-memory mock basket.
 $bffProc = Start-NpmApp -projPath $bffPath -scriptName "dev"
 $feProc  = Start-NpmApp -projPath $fePath  -scriptName "dev"
+
+# Both processes have inherited what they need; take the values back out of
+# this terminal so the next run starts from bff\.env again.
+Restore-LauncherEnv
 
 # --- Open the frontend in the browser ---------------------------------
 try {

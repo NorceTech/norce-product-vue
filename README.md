@@ -135,7 +135,7 @@ Both `.env` files are gitignored.
 
 | Variable | Description | Default |
 |---|---|---|
-| `MOCK_DATA` | Serve the fixtures instead of calling Norce | `false` |
+| `MOCK_DATA` | Serve the fixtures instead of calling Norce | see below |
 | `API_BASE` | Norce API base URL — `<slug>.api-<region>.playground.norce.tech` | — **required** |
 | `OAUTH_ID` | OAuth2 client ID | — **required** |
 | `OAUTH_SECRET` | OAuth2 client secret | — **required** |
@@ -147,10 +147,20 @@ Both `.env` files are gitignored.
 | `METADATA_SERVICE` | Metadata service path | `/commerce/metadata/1.1` |
 | `LOG_REQUESTS` | Log incoming BFF requests | `true` |
 
-Mock mode is only ever entered on purpose. If `MOCK_DATA` is not `true` and any
-of `API_BASE`, `OAUTH_ID`, `OAUTH_SECRET`, `APPLICATION_ID` or `CATEGORY_SEED`
-is missing, the BFF names what is absent and stops — it does not fall back to
-fixtures of another tenant, which used to look like success.
+Mock mode is only ever entered on purpose, but "on purpose" has three sources
+and they are easy to confuse:
+
+- `bff/.env.example` ships with `MOCK_DATA=true`, so copying it gives you the
+  fixtures until you change that line.
+- With no `bff/.env` at all, `run.ps1` sets `MOCK_DATA=true` for that run and
+  says so, which is what keeps a fresh clone working.
+- Naming a tenant or a host (`-a`, `-s`, `-e`) sets it to `false` instead.
+
+What is gone is the fourth source: falling into mock mode because the
+configuration was incomplete. If `MOCK_DATA` is not `true` and any of
+`API_BASE`, `OAUTH_ID`, `OAUTH_SECRET`, `APPLICATION_ID` or `CATEGORY_SEED` is
+missing, the BFF names what is absent and stops — it does not serve fixtures of
+another tenant, which used to look like success.
 
 Credentials do not have to be written into `.env`. The file supports variable
 expansion, so it can point at environment variables that already exist on your
