@@ -271,20 +271,26 @@ if ($ApplicationId -or $CategorySeed -or $apiHost) {
     }
 }
 
-# --- Install dependencies when needed ---------------------------------
-Ensure-NpmDeps -projPath $bffPath
-Ensure-NpmDeps -projPath $fePath
-
-# --- Start both apps --------------------------------------------------
+# --- Install dependencies and start both apps -------------------------
+# In `finally`, because a failed npm install or a failed start would otherwise
+# leave the overrides in the terminal - the same leak as before, reached through
+# the error path instead of the happy one. $ErrorActionPreference is Stop, so
+# this is not hypothetical.
+#
 # "dev" rather than "start": node --watch reloads the BFF when index.js or
 # mockBasket.js changes, so editing the backend does not mean restarting by
 # hand. Note that a reload resets the in-memory mock basket.
-$bffProc = Start-NpmApp -projPath $bffPath -scriptName "dev"
-$feProc  = Start-NpmApp -projPath $fePath  -scriptName "dev"
+try {
+    Ensure-NpmDeps -projPath $bffPath
+    Ensure-NpmDeps -projPath $fePath
 
-# Both processes have inherited what they need; take the values back out of
-# this terminal so the next run starts from bff\.env again.
-Restore-LauncherEnv
+    $bffProc = Start-NpmApp -projPath $bffPath -scriptName "dev"
+    $feProc  = Start-NpmApp -projPath $fePath  -scriptName "dev"
+} finally {
+    # Both processes inherited what they need at spawn time, so taking the
+    # values back out of this terminal costs them nothing.
+    Restore-LauncherEnv
+}
 
 # --- Open the frontend in the browser ---------------------------------
 try {
