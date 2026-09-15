@@ -1,19 +1,24 @@
 <#
-   Run:  .\run.ps1 [-SkipInstall] [-ApplicationId <id>] [-CategorySeed <id>]
+   Run:  .\run.ps1 [-SkipInstall] [-a <id>] [-c <id>] [-s <slug>] [-e <environment>]
 
    - Installs npm packages in bff/ and productpage-vue/ when node_modules is missing
    - Warns when bff\.env is missing
    - Starts the BFF (http://localhost:3000) and the frontend (http://localhost:5173)
 
    Examples:
-     .\run.ps1                                       # whatever bff\.env says
-     .\run.ps1 -ApplicationId <your-app> -CategorySeed <your-root-category>
-     .\run.ps1 -ApplicationId 1042 -CategorySeed 5   # Norce Open Demo
+     .\run.ps1                              # whatever bff\.env says
+     .\run.ps1 -a 1042 -c 5                 # Norce Open Demo on playground
+     .\run.ps1 -a <your-app> -c <your-root-category>
+     .\run.ps1 -a 1234 -c 7 -e stage        # same slug, stage instead
+     .\run.ps1 -a 1234 -c 7 -s acme -e prod # a single-tenant customer
 
    The arguments are set as environment variables before the processes start.
    Neither dotenv nor Vite's loadEnv overrides a variable that is already in the
    environment, so what is passed here wins over the .env files without touching
    them.
+
+   Passing an application or a host also selects live mode, because asking for a
+   specific tenant and being served the fixtures is never what was meant.
 #>
 
 param(
@@ -22,13 +27,63 @@ param(
     # Norce application id. The application id decides which tenant you reach,
     # not the host name - the same API host answers with the right tenant's
     # data, and the image CDN follows via the client id from GetApplication.
+    [Alias('a')]
     [int]$ApplicationId,
 
     # Root category that the product list and the filters are scoped to.
-    [int]$CategorySeed
+    [Alias('c')]
+    [int]$CategorySeed,
+
+    # Tenant slug in the API host name. Defaults to the multi-tenant
+    # `norcecommerce` slug, which reaches most tenants because the application
+    # id selects the tenant. Single-tenant customers have their own deployment
+    # and have to be named here.
+    [Alias('s')]
+    [string]$Slug,
+
+    # Which environment to reach. Production has no environment segment in the
+    # host name, which is why this is a set rather than free text.
+    [Alias('e')]
+    [ValidateSet('playground', 'stage', 'prod')]
+    [string]$Environment
 )
 
 $ErrorActionPreference = "Stop"
+
+# Everything this script sets has to reach the BFF and Vite, which inherit the
+# environment when they are started - but `$env:` belongs to the PowerShell
+# process, not to the script, so those values would outlive the run and leak
+# into the next one in the same terminal. That matters most for the person who
+# follows the setup banner: a zero-config run would leave MOCK_DATA=true behind,
+# and the next run, with a freshly written live bff\.env, would still serve the
+# fixtures - dotenv does not override an inherited variable. A tenant chosen
+# with -a would stick the same way.
+#
+# So record the previous value the first time each name is set, and put it back
+# once both processes have started. They inherit at spawn time, so restoring
+# afterwards takes nothing away from them.
+$launcherEnv = @{}
+
+function Set-LauncherEnv {
+    param([string]$name, [string]$value)
+
+    if (-not $launcherEnv.ContainsKey($name)) {
+        $launcherEnv[$name] = [Environment]::GetEnvironmentVariable($name)
+    }
+    Set-Item -Path "env:$name" -Value $value
+}
+
+function Restore-LauncherEnv {
+    foreach ($name in @($launcherEnv.Keys)) {
+        $previous = $launcherEnv[$name]
+        if ($null -eq $previous) {
+            Remove-Item -Path "env:$name" -ErrorAction SilentlyContinue
+        } else {
+            Set-Item -Path "env:$name" -Value $previous
+        }
+    }
+    $launcherEnv.Clear()
+}
 
 function Assert-Tool {
     param([string]$name, [string]$versionArg = "--version")
@@ -103,16 +158,33 @@ $fePath  = Join-Path $root "productpage-vue"
 # --- .env check for the BFF -------------------------------------------
 $envFile = Join-Path $bffPath ".env"
 $envExample = Join-Path $bffPath ".env.example"
+$namesATarget = $ApplicationId -or $Slug -or $Environment
+
 if (-not (Test-Path $envFile)) {
+    # The BFF only ever enters mock mode when MOCK_DATA=true, so a fresh clone
+    # with no .env would otherwise exit at the configuration check. Asking for
+    # the fixtures on its behalf keeps `git clone` + `.\run.ps1` working, and
+    # saying so out loud keeps mock mode something that was chosen rather than
+    # something that happened. Naming a tenant means the opposite was meant, so
+    # that case is left to fail with the BFF's own message.
+    if (-not $namesATarget) { Set-LauncherEnv 'MOCK_DATA' 'true' }
+
     Write-Host ""
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-    Write-Host "  'bff\.env' is missing — the BFF starts in MOCK mode." -ForegroundColor Yellow
-    Write-Host "  Product data comes from the local JSON files in /mockdata." -ForegroundColor Yellow
+    if ($namesATarget) {
+        Write-Host "  'bff\.env' is missing, and a tenant was named on the command line." -ForegroundColor Yellow
+        Write-Host "  The BFF needs API_BASE, OAUTH_ID and OAUTH_SECRET to reach it," -ForegroundColor Yellow
+        Write-Host "  and will say so and stop." -ForegroundColor Yellow
+    } else {
+        Write-Host "  'bff\.env' is missing, so MOCK_DATA=true was set for this run." -ForegroundColor Yellow
+        Write-Host "  Product data comes from the local JSON files in /mockdata," -ForegroundColor Yellow
+        Write-Host "  which are a capture of Norce Open Demo." -ForegroundColor Yellow
+    }
     Write-Host "" -ForegroundColor Yellow
     Write-Host "  To use the real Norce APIs:" -ForegroundColor Yellow
     Write-Host "    1. Copy the example file:  cp bff\.env.example bff\.env" -ForegroundColor White
     Write-Host "    2. Fill in your Norce OAuth credentials (OAUTH_ID, OAUTH_SECRET)" -ForegroundColor White
-    Write-Host "    3. Set MOCK_DATA=false (or remove the line)" -ForegroundColor White
+    Write-Host "    3. Set MOCK_DATA=false" -ForegroundColor White
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
     Write-Host ""
 } else {
@@ -127,27 +199,98 @@ if (-not (Test-Path $envFile)) {
 }
 
 # --- Command-line overrides -------------------------------------------
-if ($ApplicationId) { $env:APPLICATION_ID = "$ApplicationId" }
-if ($CategorySeed)  { $env:CATEGORY_SEED  = "$CategorySeed" }
+if ($ApplicationId) { Set-LauncherEnv 'APPLICATION_ID' "$ApplicationId" }
+if ($CategorySeed)  { Set-LauncherEnv 'CATEGORY_SEED'  "$CategorySeed" }
 
-if ($ApplicationId -or $CategorySeed) {
-    Write-Host ""
-    Write-Host "Overridden from the command line:" -ForegroundColor Cyan
-    if ($ApplicationId) { Write-Host "   APPLICATION_ID = $ApplicationId" -ForegroundColor Cyan }
-    if ($CategorySeed)  { Write-Host "   CATEGORY_SEED  = $CategorySeed"  -ForegroundColor Cyan }
-    Write-Host ""
+# -Slug and -Environment compose the API host. Production has no environment
+# segment: <slug>.api-se.norce.tech rather than <slug>.api-se.<env>.norce.tech.
+$apiHost = $null
+if ($Slug -or $Environment) {
+    $hostSlug = if ($Slug) { $Slug } else { 'norcecommerce' }
+    $hostEnv  = if ($Environment) { $Environment } else { 'playground' }
+
+    $apiHost = if ($hostEnv -eq 'prod') {
+        "https://$hostSlug.api-se.norce.tech"
+    } else {
+        "https://$hostSlug.api-se.$hostEnv.norce.tech"
+    }
+
+    Set-LauncherEnv 'API_BASE' $apiHost
+
+    # Norce Checkout has its own base URL but lives on the same host. Moving one
+    # without the other puts Commerce and Checkout in different environments,
+    # which fails deep inside the order flow instead of at startup. The
+    # storefront branch has no checkout code and ignores this variable.
+    Set-LauncherEnv 'NCO_BASE' $apiHost
+
+    # Images come from a third host, which Vite reads on its own. Leaving it
+    # behind gives working API calls and 404 on every product image - the kind
+    # of half-switched state that looks like a data problem.
+    $mediaHost = if ($hostEnv -eq 'prod') {
+        "https://media.cdn-norce.tech"
+    } else {
+        "https://media.$hostEnv.cdn-norce.tech"
+    }
+    Set-LauncherEnv 'VITE_MEDIA_CDN_HOST' $mediaHost
+
+    # The identity scope follows the environment. Stage is mid-rename from `lab`
+    # to `stage` in Norce, so that one is left to bff\.env rather than guessed.
+    if ($hostEnv -eq 'playground') { Set-LauncherEnv 'OAUTH_SCOPE' 'playground' }
+    if ($hostEnv -eq 'prod')       { Set-LauncherEnv 'OAUTH_SCOPE' 'prod' }
 }
 
-# --- Install dependencies when needed ---------------------------------
-Ensure-NpmDeps -projPath $bffPath
-Ensure-NpmDeps -projPath $fePath
+# Asking for a tenant or a host means asking for live data. The BFF cannot make
+# this call itself: by the time index.js reads process.env, a value from the
+# command line and one from bff\.env look identical, so the precedence has to be
+# applied here, where the command line is still visible.
+if ($namesATarget) { Set-LauncherEnv 'MOCK_DATA' 'false' }
 
-# --- Start both apps --------------------------------------------------
+if ($ApplicationId -or $CategorySeed -or $apiHost) {
+    Write-Host ""
+    Write-Host "Overridden from the command line:" -ForegroundColor Cyan
+    if ($ApplicationId) { Write-Host "   APPLICATION_ID       = $ApplicationId" -ForegroundColor Cyan }
+    if ($CategorySeed)  { Write-Host "   CATEGORY_SEED        = $CategorySeed"  -ForegroundColor Cyan }
+    if ($apiHost)       { Write-Host "   API_BASE             = $apiHost"       -ForegroundColor Cyan }
+    if ($apiHost)       { Write-Host "   NCO_BASE             = $apiHost"       -ForegroundColor Cyan }
+    if ($mediaHost)     { Write-Host "   VITE_MEDIA_CDN_HOST  = $mediaHost"     -ForegroundColor Cyan }
+    # Only when a tenant or host was actually named: -c alone changes the slice
+    # of the catalogue, not which tenant, and must not claim otherwise.
+    if ($namesATarget)  { Write-Host "   MOCK_DATA            = false (a tenant was named)" -ForegroundColor Cyan }
+    Write-Host ""
+
+    if ($Environment -eq 'stage') {
+        Write-Host "OAUTH_SCOPE is left as bff\.env has it - Norce is renaming the stage scope" -ForegroundColor Yellow
+        Write-Host "from 'lab' to 'stage', so check which one your credentials expect." -ForegroundColor Yellow
+        Write-Host ""
+    }
+
+    if ($Environment -eq 'prod') {
+        Write-Host "Production. Reads are reads, but the checkout flow on the main branch writes:" -ForegroundColor Yellow
+        Write-Host "it creates baskets and initiates NCO orders in whatever tenant it is pointed at." -ForegroundColor Yellow
+        Write-Host ""
+    }
+}
+
+# --- Install dependencies and start both apps -------------------------
+# In `finally`, because a failed npm install or a failed start would otherwise
+# leave the overrides in the terminal - the same leak as before, reached through
+# the error path instead of the happy one. $ErrorActionPreference is Stop, so
+# this is not hypothetical.
+#
 # "dev" rather than "start": node --watch reloads the BFF when index.js or
 # mockBasket.js changes, so editing the backend does not mean restarting by
 # hand. Note that a reload resets the in-memory mock basket.
-$bffProc = Start-NpmApp -projPath $bffPath -scriptName "dev"
-$feProc  = Start-NpmApp -projPath $fePath  -scriptName "dev"
+try {
+    Ensure-NpmDeps -projPath $bffPath
+    Ensure-NpmDeps -projPath $fePath
+
+    $bffProc = Start-NpmApp -projPath $bffPath -scriptName "dev"
+    $feProc  = Start-NpmApp -projPath $fePath  -scriptName "dev"
+} finally {
+    # Both processes inherited what they need at spawn time, so taking the
+    # values back out of this terminal costs them nothing.
+    Restore-LauncherEnv
+}
 
 # --- Open the frontend in the browser ---------------------------------
 try {

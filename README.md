@@ -51,20 +51,36 @@ This checkout demo builds on the storefront and adds:
 
 This installs dependencies (if needed), starts both the BFF and the frontend, and opens `http://localhost:5173` in your browser. Press `Ctrl+C` to stop.
 
-To point the demo at another application and category without editing any file:
+Four switches point it somewhere else without editing a file, each with a short form:
+
+| Switch | Short form | Meaning |
+|---|---|---|
+| `-ApplicationId` | `-a` | Which application (storefront) to show |
+| `-CategorySeed` | `-c` | Root category the product list is scoped to |
+| `-Slug` | `-s` | Tenant slug in the API host name |
+| `-Environment` | `-e` | `playground`, `stage` or `prod` |
 
 ```powershell
-.\run.ps1 -ApplicationId <your-application> -CategorySeed <your-root-category>
-.\run.ps1 -ApplicationId 1042 -CategorySeed 5
+.\run.ps1 -a 1042 -c 5                 # Norce Open Demo on playground
+.\run.ps1 -a 1234 -c 7 -e stage        # same slug, stage instead
+.\run.ps1 -a 1234 -c 7 -s acme -e prod # a single-tenant customer
 ```
 
-The arguments are exported as environment variables before the processes start.
-Neither `dotenv` nor Vite's `loadEnv` overrides a variable that is already in
-the environment, so they win over the `.env` files without touching them.
+`-s` defaults to the multi-tenant `norcecommerce` slug and `-e` to `playground`.
+The application id is what selects the tenant, so the neutral slug reaches most
+of them — single-tenant customers have their own deployment and need `-s`.
 
-Nothing else needs changing: the application id decides which tenant you reach —
-the API host serves them all on playground — and the images follow, because the
-frontend derives the media CDN from the client id in `GetApplication`.
+**Naming a tenant or a host also selects live mode.** Asking for application 1234
+and being served the Open Demo fixtures is never what was meant, so these
+switches set `MOCK_DATA=false`. If the credentials are not in place, the BFF says
+what is missing and stops rather than falling back to the fixtures.
+
+The images follow the tenant on their own: the frontend derives the media CDN
+host from the client id in `GetApplication`, so there is nothing else to change.
+
+**Checkout writes.** The basket and NCO endpoints create rows in whatever tenant
+the BFF is pointed at, so the switch that changes tenant also decides where an
+order attempt lands. Live mode says so at startup.
 
 ### Option B: Manual Start
 
@@ -129,7 +145,7 @@ Both `.env` files are gitignored.
 
 | Variable | Description | Default |
 |---|---|---|
-| `MOCK_DATA` | Force mock mode (`true`/`false`) | auto-detected |
+| `MOCK_DATA` | Serve the fixtures instead of calling Norce | see below |
 | `API_BASE` | Norce API base URL — `<slug>.api-<region>.playground.norce.tech` | — **required** |
 | `OAUTH_ID` | OAuth2 client ID | — **required** |
 | `OAUTH_SECRET` | OAuth2 client secret | — **required** |
@@ -141,6 +157,21 @@ Both `.env` files are gitignored.
 | `METADATA_SERVICE` | Metadata service path | `/commerce/metadata/1.1` |
 | `SHOPPING_SERVICE` | Shopping service path | `/commerce/shopping/1.1` |
 | `LOG_REQUESTS` | Log incoming BFF requests | `true` |
+
+Mock mode is only ever entered on purpose, but "on purpose" has three sources
+and they are easy to confuse:
+
+- `bff/.env.example` ships with `MOCK_DATA=true`, so copying it gives you the
+  fixtures until you change that line.
+- With no `bff/.env` at all, `run.ps1` sets `MOCK_DATA=true` for that run and
+  says so, which is what keeps a fresh clone working.
+- Naming a tenant or a host (`-a`, `-s`, `-e`) sets it to `false` instead.
+
+What is gone is the fourth source: falling into mock mode because the
+configuration was incomplete. If `MOCK_DATA` is not `true` and any of
+`API_BASE`, `OAUTH_ID`, `OAUTH_SECRET`, `APPLICATION_ID` or `CATEGORY_SEED` is
+missing, the BFF names what is absent and stops — it does not serve fixtures of
+another tenant, which used to look like success.
 
 Credentials do not have to be written into `.env`. The file supports variable
 expansion, so it can point at environment variables that already exist on your
@@ -168,7 +199,7 @@ banner saying it fell back to mock mode and which variables are missing.
 
 | Variable | Description | Default |
 |---|---|---|
-| `VITE_MEDIA_CDN_HOST` | Media CDN environment | `https://media.playground.cdn-norce.tech` |
+| `VITE_MEDIA_CDN_HOST` | Media CDN host for image and file keys | `https://media.playground.cdn-norce.tech` |
 
 Norce returns images and files as keys (GUIDs) — only external links (e.g.
 YouTube) come back with a `Path`. Media is served per client:

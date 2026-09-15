@@ -1,9 +1,10 @@
 // BFF (Backend-for-Frontend) for the Norce Academy Checkout demo.
 // Proxies Norce Commerce API calls (Product, Shopping, Metadata services)
-// and NCO (Norce Checkout Order). Handles OAuth2 authentication and
-// caches responses. Falls back to local JSON mock data when credentials
-// are not configured; the basket is then kept in memory (see mockBasket.js)
-// so add/update/remove actually work offline.
+// and NCO (Norce Checkout Order). Handles OAuth2 authentication and caches
+// responses. Serves the local JSON fixtures in /mockdata only when
+// MOCK_DATA=true; incomplete live configuration is a startup error rather than
+// a quiet fall back to fixtures of another tenant. In mock mode the basket is
+// kept in memory (see mockBasket.js) so add/update/remove work offline.
 
 // dotenv-expand lets .env reference other environment variables, e.g.
 //   OAUTH_ID="${MY_CLIENT_ID}"
@@ -64,36 +65,48 @@ const apiConfig = {
 };
 
 
-const useMockData = process.env.MOCK_DATA === 'true' || !apiConfig.api_base || !apiConfig.oauth_id || !apiConfig.oauth_secret;
+// Mock mode is asked for, never fallen into. Missing credentials used to send
+// the BFF here silently, which meant `run.ps1 -a <id>` served the Norce Open
+// Demo fixtures instead of the application that was asked for - a working
+// storefront showing the wrong tenant, which is worse than an error.
+const useMockData = process.env.MOCK_DATA === 'true';
 
 if (useMockData) {
-    // Asking for live mode and not getting it is a misconfiguration, not a
-    // happy fallback - say so loudly rather than quietly serving fixtures.
-    if (process.env.MOCK_DATA === 'false') {
-        const missing = [
-            ['API_BASE', apiConfig.api_base],
-            ['OAUTH_ID', apiConfig.oauth_id],
-            ['OAUTH_SECRET', apiConfig.oauth_secret]
-        ].filter((entry) => !entry[1]).map((entry) => entry[0]);
-
-        console.warn('='.repeat(70));
-        console.warn(`[CONFIG] MOCK_DATA=false, but falling back to MOCK MODE: ${missing.join(', ')} not set.`);
-        console.warn('[CONFIG] Fill these in bff/.env to reach the live Norce APIs.');
-        console.warn('='.repeat(70));
+    console.log('BFF is running in mock data mode (MOCK_DATA=true).');
+    console.log('Product data is served from /mockdata, which is a capture of Norce Open Demo.');
+    console.log('The basket lives in memory (mockBasket.js), so add, update and remove work offline.');
+    if (apiConfig.application_id && apiConfig.application_id !== '1042') {
+        console.log(`[CONFIG] APPLICATION_ID is ${apiConfig.application_id}, but mock mode does not call Norce, so it has no effect.`);
     }
-
-    console.log('BFF is running in mock data mode.');
-    console.log('Product data is served from /mockdata; the basket lives in memory (mockBasket.js).');
 } else {
-    const missingCore = ['API_BASE', 'APPLICATION_ID', 'CATEGORY_SEED']
-        .filter((name) => !process.env[name]);
+    const missing = [
+        ['API_BASE', apiConfig.api_base],
+        ['OAUTH_ID', apiConfig.oauth_id],
+        ['OAUTH_SECRET', apiConfig.oauth_secret],
+        ['APPLICATION_ID', apiConfig.application_id],
+        ['CATEGORY_SEED', apiConfig.category_seed]
+    ].filter((entry) => !entry[1]).map((entry) => entry[0]);
 
-    if (missingCore.length) {
-        console.error(`[CONFIG] Missing required settings: ${missingCore.join(', ')}`);
-        console.error('[CONFIG] Product endpoints will fail. See bff/.env.example.');
-    } else {
-        console.log(`[CONFIG] Live mode: application ${apiConfig.application_id}, root category ${apiConfig.category_seed}, ${apiConfig.api_base}`);
+    if (missing.length) {
+        console.error('='.repeat(70));
+        console.error('[CONFIG] Live mode, but the configuration is incomplete.');
+        console.error(`[CONFIG] Not set: ${missing.join(', ')}`);
+        if (apiConfig.application_id) {
+            console.error(`[CONFIG] APPLICATION_ID ${apiConfig.application_id} says which tenant to read, but not`);
+            console.error('[CONFIG] where to reach it or with what credentials. It cannot stand in for the rest.');
+        }
+        console.error('[CONFIG] Copy bff/.env.example to bff/.env and fill it in, or set MOCK_DATA=true');
+        console.error('[CONFIG] to work from the fixtures on purpose.');
+        console.error('='.repeat(70));
+        process.exit(1);
     }
+
+    console.log(`[CONFIG] Live mode: application ${apiConfig.application_id}, root category ${apiConfig.category_seed}, ${apiConfig.api_base}`);
+
+    // The checkout flow writes: it creates baskets and initiates NCO orders in
+    // whatever tenant it is pointed at. Worth saying out loud, since the same
+    // command that changes tenant also decides where those rows land.
+    console.log('[CONFIG] Checkout writes to this tenant: baskets, and NCO orders once initiated.');
 
     // Report missing checkout configuration up front instead of failing with an
     // opaque 500 halfway through the payment flow.
@@ -727,15 +740,33 @@ app.delete('/api/basket/:basketId/items/:lineNo', async (req, res) => {
     }
 });
 
+// Checkout configuration is tenant-specific and cannot be derived from the
+// application id. In live mode a missing value used to fall through to the
+// fixtures, so the endpoint answered 200 with another tenant's order - the same
+// silent substitution that mock mode no longer makes. Say what is missing.
+function ncoNotConfigured(res) {
+    const missing = ['NCO_BASE', 'NCO_MERCHANT', 'NCO_CHANNEL', 'NCO_PAYMENT_METHOD_ID']
+        .filter((name) => !process.env[name]);
+    if (!missing.length) return false;
+
+    res.status(503).json({
+        error: 'Checkout is not configured',
+        missing,
+        hint: 'Set these in bff/.env for the tenant you are pointing at, or set MOCK_DATA=true to work from the fixtures.'
+    });
+    return true;
+}
+
 // NCO - initiate a checkout order from a Norce basket
 app.post('/api/checkout/initiate', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-initiate.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const body = req.body || {};
     const url = `${apiConfig.nco_base}${apiConfig.nco_norce_adapter}/api/v1/orders`;
@@ -750,13 +781,14 @@ app.post('/api/checkout/initiate', async (req, res) => {
 
 // NCO Non-PSP adapter - create a payment (skips external payment provider)
 app.post('/api/checkout/nonpsp/orders/:orderId/payments', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-payment.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_nonpsp_adapter}/api/checkout/v1/orders/${orderId}/payments`;
@@ -771,13 +803,14 @@ app.post('/api/checkout/nonpsp/orders/:orderId/payments', async (req, res) => {
 
 // NCO Non-PSP adapter - update payment details
 app.put('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-payment.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId, paymentId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_nonpsp_adapter}/api/checkout/v1/orders/${orderId}/payments/${paymentId}`;
@@ -792,13 +825,14 @@ app.put('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId', async (req, 
 
 // NCO Non-PSP adapter - complete the payment and finalize the order
 app.post('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId/complete', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-complete.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId, paymentId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_nonpsp_adapter}/api/checkout/v1/orders/${orderId}/payments/${paymentId}/complete`;
@@ -813,13 +847,14 @@ app.post('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId/complete', as
 
 // NCO Order API - update billing address on checkout order
 app.put('/api/checkout/orders/:orderId/customer/billing', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-billing.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_order_api}/api/v0/checkout/orders/${orderId}/customer/billing`;
@@ -834,13 +869,14 @@ app.put('/api/checkout/orders/:orderId/customer/billing', async (req, res) => {
 
 // NCO Order API - update shipping address on checkout order
 app.put('/api/checkout/orders/:orderId/customer/shipping', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-shipping.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_order_api}/api/v0/checkout/orders/${orderId}/customer/shipping`;
