@@ -1,9 +1,10 @@
 // BFF (Backend-for-Frontend) for the Norce Academy Checkout demo.
 // Proxies Norce Commerce API calls (Product, Shopping, Metadata services)
-// and NCO (Norce Checkout Order). Handles OAuth2 authentication and
-// caches responses. Falls back to local JSON mock data when credentials
-// are not configured; the basket is then kept in memory (see mockBasket.js)
-// so add/update/remove actually work offline.
+// and NCO (Norce Checkout Order). Handles OAuth2 authentication and caches
+// responses. Serves the local JSON fixtures in /mockdata only when
+// MOCK_DATA=true; incomplete live configuration is a startup error rather than
+// a quiet fall back to fixtures of another tenant. In mock mode the basket is
+// kept in memory (see mockBasket.js) so add/update/remove work offline.
 
 // dotenv-expand lets .env reference other environment variables, e.g.
 //   OAUTH_ID="${MY_CLIENT_ID}"
@@ -739,15 +740,33 @@ app.delete('/api/basket/:basketId/items/:lineNo', async (req, res) => {
     }
 });
 
+// Checkout configuration is tenant-specific and cannot be derived from the
+// application id. In live mode a missing value used to fall through to the
+// fixtures, so the endpoint answered 200 with another tenant's order - the same
+// silent substitution that mock mode no longer makes. Say what is missing.
+function ncoNotConfigured(res) {
+    const missing = ['NCO_BASE', 'NCO_MERCHANT', 'NCO_CHANNEL', 'NCO_PAYMENT_METHOD_ID']
+        .filter((name) => !process.env[name]);
+    if (!missing.length) return false;
+
+    res.status(503).json({
+        error: 'Checkout is not configured',
+        missing,
+        hint: 'Set these in bff/.env for the tenant you are pointing at, or set MOCK_DATA=true to work from the fixtures.'
+    });
+    return true;
+}
+
 // NCO - initiate a checkout order from a Norce basket
 app.post('/api/checkout/initiate', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-initiate.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const body = req.body || {};
     const url = `${apiConfig.nco_base}${apiConfig.nco_norce_adapter}/api/v1/orders`;
@@ -762,13 +781,14 @@ app.post('/api/checkout/initiate', async (req, res) => {
 
 // NCO Non-PSP adapter - create a payment (skips external payment provider)
 app.post('/api/checkout/nonpsp/orders/:orderId/payments', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-payment.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_nonpsp_adapter}/api/checkout/v1/orders/${orderId}/payments`;
@@ -783,13 +803,14 @@ app.post('/api/checkout/nonpsp/orders/:orderId/payments', async (req, res) => {
 
 // NCO Non-PSP adapter - update payment details
 app.put('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-payment.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId, paymentId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_nonpsp_adapter}/api/checkout/v1/orders/${orderId}/payments/${paymentId}`;
@@ -804,13 +825,14 @@ app.put('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId', async (req, 
 
 // NCO Non-PSP adapter - complete the payment and finalize the order
 app.post('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId/complete', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-complete.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId, paymentId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_nonpsp_adapter}/api/checkout/v1/orders/${orderId}/payments/${paymentId}/complete`;
@@ -825,13 +847,14 @@ app.post('/api/checkout/nonpsp/orders/:orderId/payments/:paymentId/complete', as
 
 // NCO Order API - update billing address on checkout order
 app.put('/api/checkout/orders/:orderId/customer/billing', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-billing.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_order_api}/api/v0/checkout/orders/${orderId}/customer/billing`;
@@ -846,13 +869,14 @@ app.put('/api/checkout/orders/:orderId/customer/billing', async (req, res) => {
 
 // NCO Order API - update shipping address on checkout order
 app.put('/api/checkout/orders/:orderId/customer/shipping', async (req, res) => {
-    if (useMockData || !apiConfig.nco_base) {
+    if (useMockData) {
         const data = readJson('checkout-shipping.json', res);
         if (data) {
             res.json(data);
         }
         return;
     }
+    if (ncoNotConfigured(res)) return;
 
     const { orderId } = req.params;
     const url = `${apiConfig.nco_base}${apiConfig.nco_order_api}/api/v0/checkout/orders/${orderId}/customer/shipping`;
