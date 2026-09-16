@@ -232,7 +232,7 @@
                 :name="p.Name"
                 :image-key="p.ImageKey"
                 :price="p.Price"
-                :href="{ name: 'ProductPage', params: { uniqueName: p.UniqueName } }"
+                :href="p.UniqueName ? { name: 'ProductPage', params: { uniqueName: p.UniqueName } } : undefined"
                 variant="relation"
               />
             </div>

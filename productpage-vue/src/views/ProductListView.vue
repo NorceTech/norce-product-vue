@@ -133,6 +133,10 @@
         <p class="result-count">{{ $t('productListView.resultCount', { count: itemCount }) }}</p>
       </div>
 
+      <p v-if="unlinkableProducts.length" class="results-warning" role="status">
+        {{ $t('productListView.unlinkableWarning', { count: unlinkableProducts.length }) }}
+      </p>
+
       <p v-if="!products.length" class="results-empty">
         {{ $t('productListView.noResults') }}
       </p>
@@ -145,7 +149,7 @@
             :name="product.Name"
             :image-key="product.ImageKey"
             :price="displayPrice(product)"
-            :href="{ name: 'ProductPage', params: { uniqueName: product.UniqueName } }"
+            :href="productHref(product)"
             variant="list"
         />
       </main>
@@ -449,6 +453,34 @@ function formatPrice(value: number, currencyUnit: string) {
 function displayPrice(product: any) {
   return product?.PriceIncVat ?? 0;
 }
+
+/**
+ * UniqueName is the root-level SEO identifier and the only param the
+ * ProductPage route takes, so a product without one has no page to link to.
+ * It is empty when the product's variant cluster has no name in this culture:
+ * PIM generates the unique URL from the name, and no name means no URL.
+ *
+ * That is a data error to fix in PIM, not a field to work around here - but one
+ * such row must not cost us the other 59. Without this guard router-link throws
+ * inside setup(), the grid never mounts, and the page renders empty.
+ */
+function productHref(product: any) {
+  return product.UniqueName
+      ? { name: 'ProductPage', params: { uniqueName: product.UniqueName } }
+      : undefined;
+}
+
+const unlinkableProducts = computed(() => products.value.filter(p => !p.UniqueName));
+
+// Name them in the console: the shopper needs to know the card is dead, whoever
+// maintains the catalogue needs to know which product to go and fix.
+watch(unlinkableProducts, list => {
+  if (!list.length) return;
+  console.warn(
+      '[storefront] No UniqueName - the variant cluster has no name in PIM:',
+      list.map(p => ({ Id: p.Id, Name: p.Name, PartNo: p.PartNo })),
+  );
+});
 
 function toggleFilter(filterName: string, value: string) {
   if (!selectedFilters.value[filterName]) {

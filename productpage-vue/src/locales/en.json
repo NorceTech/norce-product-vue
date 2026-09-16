@@ -41,7 +41,8 @@
     "searchPlaceholder": "Search products",
     "searchClear": "Clear search",
     "resultCount": "{count} products",
-    "noResults": "No products match your search."
+    "noResults": "No products match your search.",
+    "unlinkableWarning": "{count} of the products have no unique URL name in PIM and cannot be opened. The cards are shown, but are not clickable."
   },
   "promoStrip": {
     "defaultPromotionName": "Promotion",

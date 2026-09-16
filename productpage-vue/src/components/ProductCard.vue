@@ -1,8 +1,14 @@
 <template>
-  <router-link
-      :to="href"
+  <!--
+    A card without an href is a product we cannot route to - see the comment on
+    the href prop. router-link throws during setup() when a required route param
+    is missing, which unmounts the whole grid, so the link itself has to go.
+  -->
+  <component
+      :is="href ? 'router-link' : 'div'"
+      v-bind="href ? { to: href } : {}"
       class="product-card"
-      :class="`variant-${variant}`"
+      :class="[`variant-${variant}`, { 'is-unlinked': !href }]"
   >
     <div class="image-container">
       <img
@@ -20,7 +26,7 @@
     <p class="product-price">
       {{ formattedPrice }}
     </p>
-  </router-link>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -34,7 +40,13 @@ const props = defineProps({
   price: { type: Number, required: true },
   currency: { type: String, default: 'SEK' },
   locale: { type: String, default: 'sv-SE' },
-  href: { type: [String, Object], required: true },
+  // Left undefined when the product has no UniqueName. That is the root-level SEO
+  // identifier and the only param the ProductPage route takes, so without it
+  // there is no product page to link to. Do not substitute VariantUniqueName:
+  // it resolves to the same product but is a second URL for it, and it hides a
+  // PIM data error (the variant cluster has no name in that culture, and the
+  // unique URL is generated from that name).
+  href: { type: [String, Object], default: undefined },
   // "list" | "relation"
   variant: { type: String, default: 'list' }
 });
@@ -70,6 +82,13 @@ const imageOptions = computed(() => {
   height: auto;               /* let the card grow with its content */
   min-height: 320px;          /* stable height */
   max-height: none;           /* no hard maximum */
+}
+
+/* A product we could not build a link for: shown, but visibly not clickable. */
+.product-card.is-unlinked {
+  cursor: default;
+  border-style: dashed;
+  color: #777;
 }
 
 /* variant-specific height */

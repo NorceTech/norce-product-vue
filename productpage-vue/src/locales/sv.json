@@ -41,7 +41,8 @@
     "searchPlaceholder": "Sök produkter",
     "searchClear": "Rensa sökningen",
     "resultCount": "{count} produkter",
-    "noResults": "Inga produkter matchar din sökning."
+    "noResults": "Inga produkter matchar din sökning.",
+    "unlinkableWarning": "{count} av produkterna saknar unikt URL-namn i PIM och går inte att öppna. Korten visas, men är inte klickbara."
   },
   "promoStrip": {
     "defaultPromotionName": "Kampanj",
