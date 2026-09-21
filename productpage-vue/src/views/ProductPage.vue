@@ -63,9 +63,9 @@
             {{ $t('productPage.nextDelivery') }} {{ parseNorcedate(currentItem?.OnHand?.NextDeliveryDate, globalCulture) }}
           </p>
 
-          <p v-if="currentItem?.IsBuyable" class="text-sm" style="color:green;font-weight:600">
-            {{ $t('productPage.buyable') }}
-          </p>
+          <button class="btn primary mt-2" @click="handleAddToBasket" :disabled="!currentItem?.IsBuyable">
+            {{ $t('productPage.addToBasket') }}
+          </button>
         </section>
 
         <PromoStrip :promos="promotions" />
@@ -575,9 +575,22 @@ function setFacet(code: string, key: string) {
 }
 
 import api from '@/services/api';
+import { useBasket } from '@/composables/useBasket'
+import type { BasketItem } from '@/types'
 
 const globalCulture = inject('culture') as Ref<string>;
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
+const { addItem } = useBasket()
+
+function handleAddToBasket() {
+  if (!currentItem.value) return
+  // PartNo and quantity only. The price list decides the price, server side —
+  // see toBasketItem() in bff/index.js.
+  addItem({
+    PartNo: currentItem.value.PartNo,
+    Quantity: 1,
+  } as BasketItem)
+}
 
 async function fetchProductData() {
   const errors = [];

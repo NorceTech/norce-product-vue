@@ -23,7 +23,7 @@
     "includingVAT": "inklusive",
     "vatAmountSuffix": "moms",
     "inStock": "I lager:",
-    "buyable": "Tillgänglig för köp",
+    "addToBasket": "Lägg i varukorg",
     "loading": "Laddar…",
     "downloadDataSheet": "Ladda ner datablad",
     "nextDelivery": "Nästa leverans:",
@@ -50,5 +50,14 @@
   },
   "bff": {
     "errorMessage": "Varning: Kunde inte ansluta till BFF. Se till att backend körs."
+  },
+  "cart": {
+    "button": "Varukorg",
+    "title": "Din varukorg",
+    "empty": "Varukorgen är tom.",
+    "remove": "Ta bort",
+    "subtotal": "Delsumma (exkl moms)",
+    "subtotalIncVat": "Delsumma (inkl moms)",
+    "clear": "Starta ny varukorg"
   }
 }

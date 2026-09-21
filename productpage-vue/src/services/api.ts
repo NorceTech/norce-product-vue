@@ -71,4 +71,19 @@ export default {
   getApplication() {
     return apiClient.get('/application');
   },
+  getBasket(basketId: string | number) {
+    return apiClient.get(`/basket/${basketId}`);
+  },
+  createBasket(payload: any) {
+    return apiClient.post('/basket', payload);
+  },
+  addBasketItem(basketId: string | number, payload: any) {
+    return apiClient.post(`/basket/${basketId}/items`, payload);
+  },
+  updateBasketItem(basketId: string | number, itemId: string | number, payload: any) {
+    return apiClient.put(`/basket/${basketId}/items/${itemId}`, payload);
+  },
+  deleteBasketItem(basketId: string | number, lineNo: string | number, params?: any) {
+    return apiClient.delete(`/basket/${basketId}/items/${lineNo}`, { params });
+  },
 };

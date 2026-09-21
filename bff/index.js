@@ -2,7 +2,8 @@
 // Proxies Norce Commerce API calls, handles OAuth2 authentication,
 // and caches responses. Serves the local JSON fixtures in /mockdata only when
 // MOCK_DATA=true; incomplete live configuration is a startup error rather than
-// a quiet fall back to fixtures of another tenant.
+// a quiet fall back to fixtures of another tenant. In mock mode the basket is
+// kept in memory (see mockBasket.js) so add/update/remove work offline.
 
 // dotenv-expand lets .env reference other environment variables, e.g.
 //   OAUTH_ID="${MY_CLIENT_ID}"
@@ -15,6 +16,7 @@ const cors = require('cors');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const mockBasket = require('./mockBasket');
 
 const app = express();
 const logRequests = process.env.LOG_REQUESTS !== 'false';
@@ -36,6 +38,7 @@ const apiConfig = {
     identity_path: process.env.IDENTITY_PATH || "/identity/1.0/connect/token",
     product_service: process.env.PRODUCT_SERVICE || "/commerce/product/1.1",
     metadata_service: process.env.METADATA_SERVICE || "/commerce/metadata/1.1",
+    shopping_service: process.env.SHOPPING_SERVICE || "/commerce/shopping/1.1",
     oauth_scope: process.env.OAUTH_SCOPE || "playground",
     // No default: 1042 is the Norce Open Demo application. Pointing the site at
     // another tenant while silently keeping NOD's id gives confusing empty
@@ -57,6 +60,7 @@ const useMockData = process.env.MOCK_DATA === 'true';
 if (useMockData) {
     console.log('BFF is running in mock data mode (MOCK_DATA=true).');
     console.log('Product data is served from /mockdata, which is a capture of Norce Open Demo.');
+    console.log('The basket lives in memory (mockBasket.js), so add, update and remove work offline.');
     if (apiConfig.application_id && apiConfig.application_id !== '1042') {
         console.log(`[CONFIG] APPLICATION_ID is ${apiConfig.application_id}, but mock mode does not call Norce, so it has no effect.`);
     }
@@ -155,6 +159,84 @@ async function fetchData(url, cacheKey) {
         console.error(`[NORCE ERROR] Failed to fetch data from ${url}:`, error.message);
         throw error;
     }
+}
+
+async function fetchDataNoCache(url) {
+    if (!apiConfig.api_base) {
+        console.error('ERROR: apiConfig.api_base is undefined. Cannot fetch data from external API.');
+        throw new Error('API_BASE is not configured. Please check your .env file.');
+    }
+
+    try {
+        const token = await getAuthToken();
+        console.log(`[NORCE REQUEST] URL: ${url}`);
+
+        const response = await axios.get(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'applicationId': apiConfig.application_id
+            }
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error(`[NORCE ERROR] Failed to fetch data from ${url}:`, error.message);
+        throw error;
+    }
+}
+
+async function sendData(method, url, data) {
+    if (!apiConfig.api_base) {
+        console.error('ERROR: apiConfig.api_base is undefined. Cannot send data to external API.');
+        throw new Error('API_BASE is not configured. Please check your .env file.');
+    }
+
+    try {
+        const token = await getAuthToken();
+        console.log(`[NORCE REQUEST] ${method.toUpperCase()} URL: ${url}`);
+
+        const response = await axios({
+            method,
+            url,
+            data,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'applicationId': apiConfig.application_id,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error(`[NORCE ERROR] Failed to send data to ${url}:`, error.message);
+        throw error;
+    }
+}
+
+// Only PartNo and Quantity are accepted from the browser. Price, PriceIncVat
+// and PriceListId must never travel client -> BFF -> Norce: the price list
+// decides the price, server side. Forwarding a client-supplied price to
+// InsertBasketItem is a price manipulation hole, and the wrong pattern to copy
+// into a real storefront.
+function toBasketItem(raw) {
+    if (!raw || !raw.PartNo) return null;
+
+    const quantity = Number(raw.Quantity);
+    return {
+        PartNo: String(raw.PartNo),
+        Quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+    };
+}
+
+function buildContextParams(source) {
+    const cultureCode = source.cultureCode || source.culture;
+    const params = new URLSearchParams({
+        format: 'json',
+        ...(source.pricelistSeed && { pricelistSeed: source.pricelistSeed }),
+        ...(source.currencyId && { currencyId: source.currencyId }),
+        ...(cultureCode && { cultureCode })
+    });
+    return params.toString();
 }
 
 // Norce Product Service — fetch a single product by its unique name (slug)
@@ -407,6 +489,158 @@ app.get('/api/application', async (req, res) => {
     }
 });
 
+
+// Norce Shopping Service — get basket by ID
+app.get('/api/basket/:basketId', async (req, res) => {
+    if (useMockData) {
+        res.json(mockBasket.get());
+        return;
+    }
+
+    const { basketId } = req.params;
+    const queryParams = buildContextParams(req.query);
+    const url = `${apiConfig.api_base}${apiConfig.shopping_service}/GetBasket?${queryParams}&id=${basketId}`;
+
+    try {
+        const basketData = await fetchDataNoCache(url);
+        res.json(basketData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch basket' });
+    }
+});
+
+// Norce Shopping Service — create a new basket
+app.post('/api/basket', async (req, res) => {
+    if (useMockData) {
+        const seedItems = req.body?.items ?? req.body?.Items;
+        res.json(mockBasket.create(Array.isArray(seedItems) ? seedItems : []));
+        return;
+    }
+
+    const body = req.body || {};
+    const queryParams = new URLSearchParams({
+        format: 'json',
+        ipAddress: body.ipAddress || req.ip || '127.0.0.1',
+        createdBy: body.createdBy || 1,
+        ...(body.pricelistSeed && { pricelistSeed: body.pricelistSeed }),
+        ...(body.currencyId && { currencyId: body.currencyId }),
+        ...(body.cultureCode && { cultureCode: body.cultureCode }),
+        ...(body.culture && { cultureCode: body.culture })
+    }).toString();
+
+    const url = `${apiConfig.api_base}${apiConfig.shopping_service}/CreateBasket?${queryParams}`;
+    const rawItems = body.basket?.Items ?? body.Items ?? body.items;
+    const basketBody = {
+        Items: (Array.isArray(rawItems) ? rawItems : []).map(toBasketItem).filter(Boolean)
+    };
+
+    // No PaymentMethodId or DeliveryMethodId here. CreateBasket accepts both, but
+    // choosing them is checkout's job, and this branch has no checkout — the
+    // basket module is deliberately scoped to the basket itself. The checkout
+    // branch defaults them from its own configuration, because NCO's initiate
+    // rejects a basket that has no delivery method.
+
+    try {
+        const basketData = await sendData('post', url, basketBody);
+        res.json(basketData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create basket' });
+    }
+});
+
+// Norce Shopping Service — add item to basket
+app.post('/api/basket/:basketId/items', async (req, res) => {
+    if (useMockData) {
+        const item = toBasketItem(req.body);
+        if (!item) {
+            res.status(400).json({ error: 'PartNo is required' });
+            return;
+        }
+        res.json(mockBasket.insertItem(item.PartNo, item.Quantity));
+        return;
+    }
+
+    const { basketId } = req.params;
+    const body = req.body || {};
+    const queryParams = new URLSearchParams({
+        format: 'json',
+        basketId,
+        createdBy: body.createdBy || 1,
+        ...(body.pricelistSeed && { pricelistSeed: body.pricelistSeed }),
+        ...(body.currencyId && { currencyId: body.currencyId }),
+        ...(body.cultureCode && { cultureCode: body.cultureCode }),
+        ...(body.culture && { cultureCode: body.culture })
+    }).toString();
+
+    const url = `${apiConfig.api_base}${apiConfig.shopping_service}/InsertBasketItem?${queryParams}`;
+    const itemBody = toBasketItem(body.item ?? body);
+
+    if (!itemBody) {
+        res.status(400).json({ error: 'PartNo is required' });
+        return;
+    }
+
+    try {
+        const basketData = await sendData('post', url, itemBody);
+        res.json(basketData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to insert basket item' });
+    }
+});
+
+// Norce Shopping Service — update basket item quantity
+app.put('/api/basket/:basketId/items/:itemId', async (req, res) => {
+    if (useMockData) {
+        res.json(mockBasket.updateItem(req.params.itemId, req.body?.Quantity));
+        return;
+    }
+
+    const { basketId, itemId } = req.params;
+    const body = req.body || {};
+    const queryParams = new URLSearchParams({
+        format: 'json',
+        basketId,
+        ...(body.pricelistSeed && { pricelistSeed: body.pricelistSeed }),
+        ...(body.currencyId && { currencyId: body.currencyId }),
+        ...(body.cultureCode && { cultureCode: body.cultureCode }),
+        ...(body.culture && { cultureCode: body.culture })
+    }).toString();
+
+    const url = `${apiConfig.api_base}${apiConfig.shopping_service}/UpdateBasketItem?${queryParams}`;
+    // Quantity is the only thing an update may change; Id comes from the route.
+    const source = body.item ?? body;
+    const quantity = Number(source?.Quantity);
+    const itemBody = {
+        Id: Number(source?.Id ?? itemId),
+        Quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+    };
+
+    try {
+        const basketData = await sendData('post', url, itemBody);
+        res.json(basketData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update basket item' });
+    }
+});
+
+// Norce Shopping Service — remove item from basket
+app.delete('/api/basket/:basketId/items/:lineNo', async (req, res) => {
+    if (useMockData) {
+        res.json(mockBasket.deleteItem(req.params.lineNo));
+        return;
+    }
+
+    const { basketId, lineNo } = req.params;
+    const queryParams = buildContextParams(req.query);
+    const url = `${apiConfig.api_base}${apiConfig.shopping_service}/DeleteBasketItem?${queryParams}&basketId=${basketId}&lineNo=${lineNo}`;
+
+    try {
+        const basketData = await sendData('post', url, null);
+        res.json(basketData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete basket item' });
+    }
+});
 
 app.listen(port, () => {
     console.log(`BFF server listening at http://localhost:${port}`);

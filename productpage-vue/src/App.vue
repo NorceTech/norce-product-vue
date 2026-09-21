@@ -5,6 +5,8 @@ import api, { setBffHealthCallback } from '@/services/api'
 import LanguageSelector from '@/components/LanguageSelector.vue'
 import { useCulture } from '@/composables/useCulture'
 import { setMediaClient } from '@/composables/useHelpers'
+import { useBasket } from '@/composables/useBasket'
+import CartDrawer from '@/components/CartDrawer.vue'
 
 // Debug overlay — shows API errors during development
 type DebugError = { context: string; message: string };
@@ -39,12 +41,15 @@ const cultures = ref<Culture[]>([]);
 const applicationName = ref<string>('');
 const { culture: globalCulture, updateCulture } = useCulture();
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
+const { itemCount, toggleDrawer, initFromStorage } = useBasket();
 
 onMounted(async () => {
   // Register BFF health callback
   setBffHealthCallback((status) => {
     bffStatus.value = status;
   });
+
+  await initFromStorage();
 
   try {
     const { data } = await api.getApplication();
@@ -93,6 +98,10 @@ onMounted(async () => {
       <a href="/" class="brand">{{ applicationName || $t('header.brand') }}</a>
       <div class="right-content">
         <LanguageSelector :cultures="cultures" v-if="cultures.length > 0" />
+        <button class="cart-button" @click="toggleDrawer">
+          {{ $t('cart.button') }}
+          <span v-if="itemCount" class="cart-badge">{{ itemCount }}</span>
+        </button>
       </div>
     </div>
   </header>
@@ -102,6 +111,7 @@ onMounted(async () => {
   </div>
 
   <RouterView :key="globalCulture" />
+  <CartDrawer />
 
   <div v-if="visible" class="debug-popup">
     <div class="debug-popup-content">
