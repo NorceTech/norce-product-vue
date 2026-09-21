@@ -310,9 +310,11 @@ One branch per course:
 - **`main`** — the full demo: products, filtering, product detail, basket, NCO
   and non-PSP payment. Used in *Developer Fundamentals: Checkout*. This is the
   default branch, so a plain clone gives you the checkout demo.
-- **`storefront`** — products, filtering, product detail and multi-language
-  only, with no basket or checkout code. Used in
-  *Developer Fundamentals: Storefront*.
+- **`storefront`** — products, filtering, product detail, multi-language and the
+  basket, with no checkout code. Used in *Developer Fundamentals: Storefront*.
+
+The basket sits on `storefront` because the Storefront course ends there —
+*Basket and Customers* is its last module. This branch picks up from that point.
 
 For the storefront course:
 
