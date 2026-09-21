@@ -14,8 +14,8 @@ Technical reference for AI agents working on this codebase.
 - **`main`** — that same base plus checkout: NCO and non-PSP payment (*Developer Fundamentals: Checkout*). Default branch.
 
 **The basket belongs to `storefront`, not to checkout.** `basket-and-customers` is module 6 of the
-Storefront course, so a participant who finishes that module and checks this branch out has to find
-basket code here. The branch point follows the course, and the course ends at the basket.
+Storefront course, so a participant who finishes that module and checks `storefront` out has to find
+basket code there. The branch point follows the course, and the course ends at the basket.
 
 **`storefront` is the base and `main` is built on top of it.** `git diff storefront main` is therefore exactly what checkout adds, and that diff is something the lessons ask participants to read — so it has to stay honest.
 
