@@ -29,6 +29,50 @@ Two consequences of that rule:
 
 Check the relationship with `git merge-base --is-ancestor storefront main`, which must succeed.
 
+## BFF Endpoints (main branch)
+
+`storefront` carries everything down to the basket; the checkout block below is what this branch
+adds. The tables are per branch — `storefront`'s stops after the basket.
+
+| Endpoint | Norce Service Call | Mock file |
+|---|---|---|
+| `GET /api/products?culture=xx` | `ListProducts2` | `productlist.json` |
+| `GET /api/productfilters?culture=xx` | `ListProductFilters2` | `productfilters.json` |
+| `GET /api/product/:uniqueName?culture=xx` | `GetProductByUniqueName` | `product.json` |
+| `GET /api/relations/:productId?culture=xx` | `ListProductRelations` | `relations.json` |
+| `GET /api/promos/:uniqueName?culture=xx` | `ListPromotionsByProductUniqueName` | `promos.json` |
+| `GET /api/flags?culture=xx` | `ListFlags` | `flags.json` |
+| `GET /api/application` | `GetApplication` (Metadata Service) | `cultures.json` |
+| `GET /api/basket/:basketId` | `GetBasket` (Shopping Service) | in-memory (`mockBasket.js`) |
+| `POST /api/basket` | `CreateBasket` | in-memory |
+| `POST /api/basket/:basketId/items` | `InsertBasketItem` | in-memory |
+| `PUT /api/basket/:basketId/items/:itemId` | `UpdateBasketItem` | in-memory |
+| `DELETE /api/basket/:basketId/items/:lineNo` | `DeleteBasketItem` | in-memory |
+
+The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
+Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
+pattern to copy into a real storefront. `CreateBasket` defaults `PaymentMethodId` and
+`DeliveryMethodId` from the NCO configuration here, because NCO's initiate rejects a basket without
+a delivery method; on `storefront` it sets neither, since there is no checkout to satisfy.
+
+### Checkout (NCO) — this branch only
+
+These go to NCO rather than to Commerce Services, through three configured bases: `NCO_NORCE_ADAPTER`,
+`NCO_NONPSP_ADAPTER` and `NCO_ORDER_API`, all under `NCO_BASE`.
+
+| Endpoint | NCO call | Mock file |
+|---|---|---|
+| `POST /api/checkout/initiate` | `POST {norce-adapter}/api/v1/orders` | `checkout-initiate.json` |
+| `POST /api/checkout/nonpsp/orders/:orderId/payments` | `POST {nonpsp}/api/checkout/v1/orders/:orderId/payments` | `checkout-payment.json` |
+| `PUT /api/checkout/nonpsp/orders/:orderId/payments/:paymentId` | `PUT {nonpsp}/.../payments/:paymentId` | `checkout-payment.json` |
+| `POST /api/checkout/nonpsp/orders/:orderId/payments/:paymentId/complete` | `POST {nonpsp}/.../payments/:paymentId/complete` | `checkout-complete.json` |
+| `PUT /api/checkout/orders/:orderId/customer/billing` | `PUT {order-api}/api/v0/checkout/orders/:orderId/customer/billing` | `checkout-billing.json` |
+| `PUT /api/checkout/orders/:orderId/customer/shipping` | `PUT {order-api}/.../customer/shipping` | `checkout-shipping.json` |
+
+`NCO_MERCHANT`, `NCO_CHANNEL` and `NCO_PAYMENT_METHOD_ID` are tenant-specific and have no defaults
+in code. `ncoNotConfigured()` answers 503 naming whichever are missing, rather than letting a live
+call fall through to another tenant's fixtures.
+
 ## Key Conventions
 
 - **Pedagogical code** — this is a training demo. Prefer clear, inline code over deep abstraction. Do not paper over an unclear API contract with a long fallback chain: find the right field and write down why.
