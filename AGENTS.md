@@ -10,8 +10,12 @@ Technical reference for AI agents working on this codebase.
 
 ## Branches
 
-- **`storefront`** — storefront only, no basket/checkout code (*Developer Fundamentals: Storefront*).
-- **`main`** — that same base plus basket, NCO and non-PSP payment (*Developer Fundamentals: Checkout*). Default branch.
+- **`storefront`** — the whole Storefront course, basket included, with no checkout code (*Developer Fundamentals: Storefront*).
+- **`main`** — that same base plus checkout: NCO and non-PSP payment (*Developer Fundamentals: Checkout*). Default branch.
+
+**The basket belongs to `storefront`, not to checkout.** `basket-and-customers` is module 6 of the
+Storefront course, so a participant who finishes that module and checks this branch out has to find
+basket code here. The branch point follows the course, and the course ends at the basket.
 
 **`storefront` is the base and `main` is built on top of it.** `git diff storefront main` is therefore exactly what checkout adds, and that diff is something the lessons ask participants to read — so it has to stay honest.
 
@@ -35,6 +39,16 @@ Check the relationship with `git merge-base --is-ancestor storefront main`, whic
 | `GET /api/promos/:uniqueName?culture=xx` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags?culture=xx` | `ListFlags` | `flags.json` |
 | `GET /api/application` | `GetApplication` (Metadata Service) | `cultures.json` |
+| `GET /api/basket/:basketId` | `GetBasket` (Shopping Service) | in-memory (`mockBasket.js`) |
+| `POST /api/basket` | `CreateBasket` | in-memory |
+| `POST /api/basket/:basketId/items` | `InsertBasketItem` | in-memory |
+| `PUT /api/basket/:basketId/items/:itemId` | `UpdateBasketItem` | in-memory |
+| `DELETE /api/basket/:basketId/items/:lineNo` | `DeleteBasketItem` | in-memory |
+
+The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
+Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
+pattern to copy into a real storefront. `CreateBasket` here sets no payment or delivery method:
+choosing those is checkout's job.
 
 ## Key Conventions
 

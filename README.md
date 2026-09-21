@@ -223,12 +223,16 @@ else looks fine.
 
 One branch per course:
 
-- **`storefront`** — products, filtering, product detail and multi-language,
-  with no basket or checkout code (this branch). Used in
+- **`storefront`** — products, filtering, product detail, multi-language and the
+  basket, with no checkout code (this branch). Used in
   *Developer Fundamentals: Storefront*.
-- **`main`** — the full demo, adding basket, NCO (Norce Checkout Order) and
+- **`main`** — the full demo, adding checkout: NCO (Norce Checkout Order) and
   non-PSP payment. Used in *Developer Fundamentals: Checkout*, and the default
   branch.
+
+The basket sits on `storefront` because the Storefront course ends there —
+*Basket and Customers* is its last module. The checkout branch picks up from
+that point.
 
 `main` is the default, so remember to check this branch out:
 

@@ -23,7 +23,7 @@
     "includingVAT": "including",
     "vatAmountSuffix": "VAT",
     "inStock": "In Stock:",
-    "buyable": "Available for purchase",
+    "addToBasket": "Add to Basket",
     "loading": "Loading…",
     "downloadDataSheet": "Download data sheet",
     "nextDelivery": "Next delivery:",
@@ -50,5 +50,14 @@
   },
   "bff": {
     "errorMessage": "Warning: Could not connect to the BFF. Please ensure the backend is running."
+  },
+  "cart": {
+    "button": "Cart",
+    "title": "Your cart",
+    "empty": "Your basket is empty.",
+    "remove": "Remove",
+    "subtotal": "Subtotal (ex VAT)",
+    "subtotalIncVat": "Subtotal (inc VAT)",
+    "clear": "Start new basket"
   }
 }
