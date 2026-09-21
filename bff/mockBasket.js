@@ -1,6 +1,7 @@
 // In-memory basket used when the BFF runs in mock mode.
 //
-// Why this exists: the checkout course is *about* the basket. Serving the same
+// Why this exists: the Storefront course ends *at* the basket — it is module 6,
+// Basket and Customers — and the checkout course builds on it. Serving the same
 // static basket.json for every call meant "add to cart", "change quantity" and
 // "remove" all appeared to do nothing without live API credentials. This module
 // makes those operations actually work offline.
