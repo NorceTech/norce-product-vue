@@ -392,13 +392,14 @@ const safeFiles = computed(() => {
   const mainKey = currentItem.value?.ImageKey ?? product.value?.ImageKey
   if (mainKey) list.push({Key: mainKey, isMain: true})
 
-  /* Remaining images sorted by SortOrder */
+  /* Remaining images sorted by SortOrder, skip duplicates */
   list.push(
       ...(pfiles.value || [])
           .filter(Boolean)
           .map((f: any) => ({...f, Key: f.Key ?? f.ImageKey ?? f.Name}))
           .filter(f => f.Key)
           .sort((a, b) => (a.SortOrder ?? 0) - (b.SortOrder ?? 0))
+          .filter(f => f.Key !== mainKey)
   )
 
   if (video.value) {
