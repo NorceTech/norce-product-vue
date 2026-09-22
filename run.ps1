@@ -269,6 +269,25 @@ if ($ApplicationId -or $CategorySeed -or $apiHost) {
         Write-Host "it creates baskets and initiates NCO orders in whatever tenant it is pointed at." -ForegroundColor Yellow
         Write-Host ""
     }
+
+    # -a moves Commerce to another tenant, but the NCO merchant, channel and
+    # payment and delivery methods in bff\.env stay behind: they belong to one
+    # tenant and cannot be derived from the application id. Clearing them here
+    # would hide checkout config someone set on purpose, so say it instead -
+    # only when -a really names another application than bff\.env does, and
+    # only for the values that are actually set. The storefront branch has no
+    # checkout code and never reads them.
+    $envApplicationId = if ($envContent -match '(?m)^\s*APPLICATION_ID\s*=\s*"?(\d+)') { $Matches[1] }
+    if ($ApplicationId -and "$ApplicationId" -ne $envApplicationId) {
+        $staleNco = @('NCO_MERCHANT', 'NCO_CHANNEL', 'NCO_PAYMENT_METHOD_ID', 'NCO_DELIVERY_METHOD_ID') |
+            Where-Object { $envContent -match "(?m)^\s*$_\s*=\s*`"?[^`"\s#]" }
+        if ($staleNco) {
+            Write-Host "Checkout still points at bff\.env's tenant$(if ($envApplicationId) { " (application $envApplicationId)" }):" -ForegroundColor Yellow
+            Write-Host "   $($staleNco -join ', ') are set there, and -a does not move them." -ForegroundColor Yellow
+            Write-Host "   Browsing is fine; do not run checkout against application $ApplicationId." -ForegroundColor Yellow
+            Write-Host ""
+        }
+    }
 }
 
 # --- Install dependencies when needed ---------------------------------
