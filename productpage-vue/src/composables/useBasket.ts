@@ -200,11 +200,16 @@ async function initFromStorage() {
 // and a culture that was invalid at startup was never retried after App.vue
 // corrected it. Registered once, at module level, the same way useCulture does.
 watch(useCulture().culture, () => {
-  // Fall back to the stored id: during a pending restore basket.value is still
-  // null, and skipping here would let that restore install old-culture data with
-  // nothing scheduled to correct it. Queued, so it runs after the restore.
-  const id = basket.value?.Id ?? getStoredBasketId()
-  if (id) serialize(() => loadBasket(id))
+  serialize(() => {
+    // Resolved inside the queued call, not when the watch fires. Capturing it
+    // early meant holding an id that could be obsolete by the time the queue got
+    // here — a failed restore followed by an add creates a different basket, and
+    // reloading the captured one would put the old basket back and lose the row
+    // that was just added. Falling back to the stored id covers the other case,
+    // where a restore is still pending and basket.value is null.
+    const id = basket.value?.Id ?? getStoredBasketId()
+    return id ? loadBasket(id) : Promise.resolve(null)
+  })
 })
 
 // Norce basket rows are not all products: Type 1 is a product row, anything
@@ -302,8 +307,11 @@ async function clearBasket() {
     basket.value = null
     setStoredBasketId(null)
   } catch (err: any) {
-    error.value = err?.message ?? 'Failed to clear basket'
+    const failure = err?.message ?? 'Failed to clear basket'
+    // Reload first, then record the failure: loadBasket clears `error` on entry,
+    // so setting it before the reload would wipe the reason the reload happened.
     await loadBasket(current.Id)
+    error.value = failure
   } finally {
     isLoading.value = false
   }
