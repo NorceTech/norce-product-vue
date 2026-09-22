@@ -49,10 +49,10 @@ onMounted(async () => {
     bffStatus.value = status;
   });
 
-  // Not awaited. Neither Axios client sets a timeout, so awaiting a hung basket
-  // request left isCultureInitialized false and no product view rendered at all -
-  // the basket blocking the storefront, which is backwards. A slow restore now
-  // just means the cart badge fills in late.
+  // Not awaited, and still not, even though the client now has a timeout: the
+  // basket has no business deciding when the storefront renders. Awaiting it left
+  // isCultureInitialized false until the restore came back, so a slow basket meant
+  // no product view at all. Not awaiting it means the cart badge fills in late.
   initFromStorage();
 
   try {
