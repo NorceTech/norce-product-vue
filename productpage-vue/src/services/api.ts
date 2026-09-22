@@ -9,6 +9,13 @@ let bffHealthCallback: ((status: 'ok' | 'error') => void) | null = null;
 
 const apiClient = axios.create({
   baseURL: '/api',
+  // Without this a request can hang for as long as the browser allows, and every
+  // structure built on top inherits the hang: an awaited basket restore blocked
+  // the storefront from rendering at all, and moving it into the mutation queue
+  // only moved the symptom - a restore that never settles leaves the queue stuck
+  // and no item can be added for the rest of the session. A request that ends,
+  // one way or the other, is what makes both of those merely slow.
+  timeout: 15000,
 });
 
 apiClient.interceptors.request.use(config => {
