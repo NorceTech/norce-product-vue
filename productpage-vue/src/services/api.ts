@@ -71,4 +71,7 @@ export default {
   getApplication() {
     return apiClient.get('/application');
   },
+  getTheme() {
+    return apiClient.get('/theme');
+  },
 };

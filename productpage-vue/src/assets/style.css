@@ -137,10 +137,19 @@ h3 {
    ------------------------------------------------------------------ */
 /* --- Header / brand ------------------------------------------------- */
 .brand {
-    font-family: "Bebas Neue", sans-serif;
+    /* --logo-font is set by useTheme; without a theme it is unset. */
+    font-family: var(--logo-font, "Bebas Neue"), sans-serif;
     font-size: 4rem;
     letter-spacing: .08em;
     color: var(--primary)
+}
+
+/* A theme logo takes the place of the name. Height-bound, so a wide logo and a
+   square one sit in the same header without changing its height. */
+.brand-logo {
+    height: 4rem;
+    width: auto;
+    max-width: 100%
 }
 
 /* --- Gallery -------------------------------------------------------- */
