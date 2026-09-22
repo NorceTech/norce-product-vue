@@ -511,8 +511,12 @@ app.get('/api/basket/:basketId', async (req, res) => {
 
 // Norce Shopping Service — create a new basket
 app.post('/api/basket', async (req, res) => {
+    // One shape for both modes. Mock read items/Items while live also accepted
+    // basket.Items, so the same request created different baskets depending on
+    // the mode - the exact divergence this card is about.
+    const seedItems = req.body?.basket?.Items ?? req.body?.Items ?? req.body?.items;
+
     if (useMockData) {
-        const seedItems = req.body?.items ?? req.body?.Items;
         // Through toBasketItem, exactly as the live path below. Skipping it let
         // mock mode accept a negative or absurd quantity that live mode would
         // have normalised to 1 — and a fixture that behaves differently from the
@@ -534,9 +538,8 @@ app.post('/api/basket', async (req, res) => {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.shopping_service}/CreateBasket?${queryParams}`;
-    const rawItems = body.basket?.Items ?? body.Items ?? body.items;
     const basketBody = {
-        Items: (Array.isArray(rawItems) ? rawItems : []).map(toBasketItem).filter(Boolean)
+        Items: (Array.isArray(seedItems) ? seedItems : []).map(toBasketItem).filter(Boolean)
     };
 
     // No PaymentMethodId or DeliveryMethodId here. CreateBasket accepts both, but

@@ -200,7 +200,10 @@ async function initFromStorage() {
 // and a culture that was invalid at startup was never retried after App.vue
 // corrected it. Registered once, at module level, the same way useCulture does.
 watch(useCulture().culture, () => {
-  const id = basket.value?.Id
+  // Fall back to the stored id: during a pending restore basket.value is still
+  // null, and skipping here would let that restore install old-culture data with
+  // nothing scheduled to correct it. Queued, so it runs after the restore.
+  const id = basket.value?.Id ?? getStoredBasketId()
   if (id) serialize(() => loadBasket(id))
 })
 
@@ -330,6 +333,9 @@ export function useBasket() {
     openDrawer,
     closeDrawer,
     toggleDrawer,
-    initFromStorage,
+    // Queued like the mutations. Un-awaiting it in App.vue let an add start
+    // while the restore was still in flight: the add saw no basket, created a
+    // second one, and whichever response landed last overwrote the other.
+    initFromStorage: () => serialize(initFromStorage),
   }
 }
