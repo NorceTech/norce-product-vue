@@ -513,7 +513,12 @@ app.get('/api/basket/:basketId', async (req, res) => {
 app.post('/api/basket', async (req, res) => {
     if (useMockData) {
         const seedItems = req.body?.items ?? req.body?.Items;
-        res.json(mockBasket.create(Array.isArray(seedItems) ? seedItems : []));
+        // Through toBasketItem, exactly as the live path below. Skipping it let
+        // mock mode accept a negative or absurd quantity that live mode would
+        // have normalised to 1 — and a fixture that behaves differently from the
+        // real thing teaches the wrong lesson.
+        const items = (Array.isArray(seedItems) ? seedItems : []).map(toBasketItem).filter(Boolean);
+        res.json(mockBasket.create(items));
         return;
     }
 
@@ -590,13 +595,21 @@ app.post('/api/basket/:basketId/items', async (req, res) => {
 
 // Norce Shopping Service — update basket item quantity
 app.put('/api/basket/:basketId/items/:itemId', async (req, res) => {
+    const { basketId, itemId } = req.params;
+    const body = req.body || {};
+
+    // The same request shape and the same normalisation in both modes. Read the
+    // nested form too, and fall back to 1 rather than storing Infinity — which
+    // serialises as null and makes the row unreadable.
+    const source = body.item ?? body;
+    const rawQuantity = Number(source?.Quantity);
+    const quantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
+
     if (useMockData) {
-        res.json(mockBasket.updateItem(req.params.itemId, req.body?.Quantity));
+        res.json(mockBasket.updateItem(itemId, quantity));
         return;
     }
 
-    const { basketId, itemId } = req.params;
-    const body = req.body || {};
     const queryParams = new URLSearchParams({
         format: 'json',
         basketId,
@@ -607,12 +620,13 @@ app.put('/api/basket/:basketId/items/:itemId', async (req, res) => {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.shopping_service}/UpdateBasketItem?${queryParams}`;
-    // Quantity is the only thing an update may change; Id comes from the route.
-    const source = body.item ?? body;
-    const quantity = Number(source?.Quantity);
+    // Quantity is the only thing an update may change, and the Id comes from the
+    // route — never from the body. Honouring a body Id let PUT /items/10 with
+    // {"Id": 11} update row 11, which is the route contract saying one thing and
+    // the code doing another.
     const itemBody = {
-        Id: Number(source?.Id ?? itemId),
-        Quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+        Id: Number(itemId),
+        Quantity: quantity
     };
 
     try {
