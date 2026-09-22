@@ -104,6 +104,30 @@ function buildItemPayload(item: BasketItem) {
   }
 }
 
+/**
+ * Re-read the basket after a failed mutation.
+ *
+ * A timeout aborts our wait, not the server's work: the row may well have been
+ * added. Reporting a bare failure invites a retry that adds it a second time, or
+ * deletes a line number that has since been renumbered onto a different product.
+ * Reading the basket back means the page shows what is actually there, and the
+ * error says the last action's outcome is unknown rather than that it failed.
+ *
+ * Not a guarantee. A mutation still in flight server-side will not be in this
+ * response either - but a stale read is recoverable and a duplicated order line
+ * is not.
+ */
+async function reconcileAfterFailure() {
+  const id = basket.value?.Id ?? getStoredBasketId()
+  if (!id) return
+  try {
+    const response = await api.getBasket(id)
+    setBasket(response.data)
+  } catch {
+    // Leave the last known basket in place; the error from the mutation stands.
+  }
+}
+
 async function addItem(item: BasketItem) {
   if (!item?.PartNo) return null
 
@@ -126,6 +150,7 @@ async function addItem(item: BasketItem) {
     return response.data
   } catch (err: any) {
     error.value = err?.message ?? 'Failed to add item'
+    await reconcileAfterFailure()
     return null
   } finally {
     isLoading.value = false
@@ -149,6 +174,7 @@ async function updateItemQuantity(item: BasketItem, quantity: number) {
     return response.data
   } catch (err: any) {
     error.value = err?.message ?? 'Failed to update item'
+    await reconcileAfterFailure()
     return null
   } finally {
     isLoading.value = false
@@ -170,6 +196,7 @@ async function removeItem(item: BasketItem) {
     return response.data
   } catch (err: any) {
     error.value = err?.message ?? 'Failed to remove item'
+    await reconcileAfterFailure()
     return null
   } finally {
     isLoading.value = false
