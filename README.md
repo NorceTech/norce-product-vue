@@ -74,6 +74,14 @@ and being served the Open Demo fixtures is never what was meant, so these
 switches set `MOCK_DATA=false`. If the credentials are not in place, the BFF says
 what is missing and stops rather than falling back to the fixtures.
 
+**`-Mock` is the opposite:** it serves the `/mockdata` fixtures whatever
+`bff/.env` says, and pins the image host to playground, where the fixtures come
+from. It cannot be combined with `-a`, `-s` or `-e`.
+
+```powershell
+.\run.ps1 -Mock
+```
+
 ### Option B: Manual Start
 
 **Terminal 1 — BFF:**
@@ -147,16 +155,17 @@ Both `.env` files are gitignored.
 | `METADATA_SERVICE` | Metadata service path | `/commerce/metadata/1.1` |
 | `LOG_REQUESTS` | Log incoming BFF requests | `true` |
 
-Mock mode is only ever entered on purpose, but "on purpose" has three sources
+Mock mode is only ever entered on purpose, but "on purpose" has four sources
 and they are easy to confuse:
 
 - `bff/.env.example` ships with `MOCK_DATA=true`, so copying it gives you the
   fixtures until you change that line.
 - With no `bff/.env` at all, `run.ps1` sets `MOCK_DATA=true` for that run and
   says so, which is what keeps a fresh clone working.
+- `run.ps1 -Mock` sets it to `true` for that run, whatever `bff/.env` says.
 - Naming a tenant or a host (`-a`, `-s`, `-e`) sets it to `false` instead.
 
-What is gone is the fourth source: falling into mock mode because the
+What is gone is the fifth source: falling into mock mode because the
 configuration was incomplete. If `MOCK_DATA` is not `true` and any of
 `API_BASE`, `OAUTH_ID`, `OAUTH_SECRET`, `APPLICATION_ID` or `CATEGORY_SEED` is
 missing, the BFF names what is absent and stops — it does not serve fixtures of

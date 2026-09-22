@@ -1,5 +1,5 @@
 <#
-   Run:  .\run.ps1 [-SkipInstall] [-a <id>] [-c <id>] [-s <slug>] [-e <environment>]
+   Run:  .\run.ps1 [-SkipInstall] [-Mock] [-a <id>] [-c <id>] [-s <slug>] [-e <environment>]
 
    - Installs npm packages in bff/ and productpage-vue/ when node_modules is missing
    - Warns when bff\.env is missing
@@ -7,6 +7,7 @@
 
    Examples:
      .\run.ps1                              # whatever bff\.env says
+     .\run.ps1 -Mock                        # the /mockdata fixtures, whatever bff\.env says
      .\run.ps1 -a 1042 -c 5                 # Norce Open Demo on playground
      .\run.ps1 -a <your-app> -c <your-root-category>
      .\run.ps1 -a 1234 -c 7 -e stage        # same slug, stage instead
@@ -23,6 +24,10 @@
 
 param(
     [switch]$SkipInstall,
+
+    # Serve the /mockdata fixtures whatever bff\.env says. Cannot be combined
+    # with -a, -s or -e: those name a tenant, and mock mode reads none.
+    [switch]$Mock,
 
     # Norce application id. The application id decides which tenant you reach,
     # not the host name - the same API host answers with the right tenant's
@@ -160,6 +165,12 @@ $envFile = Join-Path $bffPath ".env"
 $envExample = Join-Path $bffPath ".env.example"
 $namesATarget = $ApplicationId -or $Slug -or $Environment
 
+# -Mock and a named tenant contradict each other. Picking one silently would
+# show either the fixtures or a live tenant to someone who asked for the other.
+if ($Mock -and $namesATarget) {
+    Write-Error "-Mock cannot be combined with -a, -s or -e: mock mode serves the /mockdata fixtures and reads no tenant."
+}
+
 if (-not (Test-Path $envFile)) {
     # The BFF only ever enters mock mode when MOCK_DATA=true, so a fresh clone
     # with no .env would otherwise exit at the configuration check. Asking for
@@ -244,6 +255,18 @@ if ($Slug -or $Environment) {
 # command line and one from bff\.env look identical, so the precedence has to be
 # applied here, where the command line is still visible.
 if ($namesATarget) { Set-LauncherEnv 'MOCK_DATA' 'false' }
+
+# -Mock wins over bff\.env the same way, and for the same reason it has to be
+# done here. The fixtures are a capture of Norce Open Demo on playground, so the
+# image host is pinned to playground too - a stage or prod host left in the .env
+# files would give the fixtures a 404 on every image.
+if ($Mock) {
+    Set-LauncherEnv 'MOCK_DATA' 'true'
+    Set-LauncherEnv 'VITE_MEDIA_CDN_HOST' 'https://media.playground.cdn-norce.tech'
+    Write-Host ""
+    Write-Host "-Mock: the BFF serves the /mockdata fixtures (Norce Open Demo), whatever bff\.env says." -ForegroundColor Cyan
+    Write-Host ""
+}
 
 if ($ApplicationId -or $CategorySeed -or $apiHost) {
     Write-Host ""
