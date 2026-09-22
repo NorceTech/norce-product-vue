@@ -35,6 +35,7 @@ Check the relationship with `git merge-base --is-ancestor storefront main`, whic
 | `GET /api/promos/:uniqueName?culture=xx` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags?culture=xx` | `ListFlags` | `flags.json` |
 | `GET /api/application` | `GetApplication` (Metadata Service) | `cultures.json` |
+| `GET /api/theme?culture=xx` | `GetProductByPartNo` | `theme.json` |
 
 ## Key Conventions
 
@@ -46,6 +47,7 @@ Check the relationship with `git merge-base --is-ancestor storefront main`, whic
 - **TypeScript types** — interfaces live in `src/types/`. Respect these contracts.
 - **Norce filter format** — `key1|val1,val2;key2|val3` (semicolon-separated groups, pipe-separated key/values, comma-separated multi-values). `parf` is the exception: its values join with `*` (AND between parametrics, OR within one), and its tokens are `L<pid>_<valueId>`, `M<pid>_<valueId>` or `V<pid>_<from>-<to>`.
 - **`/api/application`** — one `GetApplication` call gives both the culture list and the storefront name (`Name`). The header title comes from there, not from a hard-coded string.
+- **`/api/theme`** — brand colour, logo font and logo from a hidden product (`npv-theme-<applicationId>`, status 4, locked, no price, in a category of its own outside `CATEGORY_SEED` with the `theme_*` parametrics linked), fetched with `GetProductByPartNo` and `statusSeed=4,5`. `GetApplication` does not return the application's Description, which is why it is not used. Parametrics are keyed on `Code` and read from `Value2`; everything is validated and whitelisted, and no theme means the default style. The theme is read without culture unless the product sets `theme_per_culture`.
 - **`RangeSlider.vue`** — shared two-handle slider used by the price filter and every numeric parametric, so they stay consistent. It owns the step-to-value mapping, including the logarithmic one for very wide spans.
 - **Nothing tenant-specific in source** — `APPLICATION_ID`, `CATEGORY_SEED` and the media CDN host are configuration. `categorySeed` used to be hard-coded as `5` in three places and `APPLICATION_ID` defaulted to NOD's `1042`, which made switching tenants a source edit.
 - **Mock mode is asked for, never fallen into** — `MOCK_DATA=true` and nothing else. Missing credentials are a startup error naming what is absent, because the old fallback served the Open Demo fixtures whenever `.env` was incomplete: a working storefront showing the wrong tenant, which reads as success. `run.ps1` sets `MOCK_DATA=false` when `-a`, `-s` or `-e` names a tenant or host, and it has to be the script that does it — by the time `index.js` reads `process.env`, a value from the command line and one from `bff/.env` are indistinguishable.

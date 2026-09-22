@@ -1,0 +1,57 @@
+{
+  "Id": 900001,
+  "Name": "Storefront theme",
+  "PartNo": "npv-theme-1042",
+  "UniqueName": "npv-theme-1042",
+  "StatusId": 5,
+  "IsBuyable": false,
+  "Type": 7,
+  "Price": 0,
+  "ImageKey": null,
+  "CategoryId": null,
+  "Categories": [],
+  "Variants": [],
+  "Files": [],
+  "Parametrics": [
+    {
+      "Name": "Theme - Primary colour",
+      "Value": "#0b5d4b",
+      "Value2": "#0b5d4b",
+      "Uom": "",
+      "Id": 9001,
+      "ValueId": null,
+      "Code": "theme_primary_color",
+      "IsHidden": false
+    },
+    {
+      "Name": "Theme - Logo font",
+      "Value": "Playfair Display",
+      "Value2": "Playfair Display",
+      "Uom": "",
+      "Id": 9002,
+      "ValueId": null,
+      "Code": "theme_logo_font",
+      "IsHidden": false
+    },
+    {
+      "Name": "Theme - Accent colour",
+      "Value": "orange",
+      "Value2": "orange",
+      "Uom": "",
+      "Id": 9003,
+      "ValueId": null,
+      "Code": "theme_accent_color",
+      "IsHidden": false
+    },
+    {
+      "Name": "Theme - Per culture",
+      "Value": "False",
+      "Value2": "False",
+      "Uom": "",
+      "Id": 9004,
+      "ValueId": null,
+      "Code": "theme_per_culture",
+      "IsHidden": false
+    }
+  ]
+}
