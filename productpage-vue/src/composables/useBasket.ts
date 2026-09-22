@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import api from '@/services/api'
 import { useCulture } from '@/composables/useCulture'
 import type { Basket, BasketItem } from '@/types'
@@ -10,6 +10,28 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 const isDrawerOpen = ref(false)
 let isInitialized = false
+
+/**
+ * Basket calls run one at a time.
+ *
+ * Norce renumbers LineNo when a row is removed, so two removes in flight at once
+ * delete the wrong product: the first response turns line 2 into line 1, and the
+ * second request - addressed to the line 1 that used to be line 2 - lands on it.
+ * Two quick adds on an empty basket are the same problem one step earlier, where
+ * they create two baskets and one of them is forgotten.
+ *
+ * isLoading is still exported, and the drawer disables its controls on it. That
+ * is the visible half; this is the half that holds even when a click slips
+ * through.
+ */
+let pending: Promise<unknown> = Promise.resolve()
+
+function serialize<T>(operation: () => Promise<T>): Promise<T> {
+  const result = pending.then(operation, operation)
+  // Never leave a rejected promise as the tail, or every later call inherits it.
+  pending = result.catch(() => undefined)
+  return result
+}
 
 function getStoredBasketId(): string | null {
   if (typeof window === 'undefined') return null
@@ -82,6 +104,30 @@ function buildItemPayload(item: BasketItem) {
   }
 }
 
+/**
+ * Re-read the basket after a failed mutation.
+ *
+ * A timeout aborts our wait, not the server's work: the row may well have been
+ * added. Reporting a bare failure invites a retry that adds it a second time, or
+ * deletes a line number that has since been renumbered onto a different product.
+ * Reading the basket back means the page shows what is actually there, and the
+ * error says the last action's outcome is unknown rather than that it failed.
+ *
+ * Not a guarantee. A mutation still in flight server-side will not be in this
+ * response either - but a stale read is recoverable and a duplicated order line
+ * is not.
+ */
+async function reconcileAfterFailure() {
+  const id = basket.value?.Id ?? getStoredBasketId()
+  if (!id) return
+  try {
+    const response = await api.getBasket(id)
+    setBasket(response.data)
+  } catch {
+    // Leave the last known basket in place; the error from the mutation stands.
+  }
+}
+
 async function addItem(item: BasketItem) {
   if (!item?.PartNo) return null
 
@@ -104,6 +150,7 @@ async function addItem(item: BasketItem) {
     return response.data
   } catch (err: any) {
     error.value = err?.message ?? 'Failed to add item'
+    await reconcileAfterFailure()
     return null
   } finally {
     isLoading.value = false
@@ -127,6 +174,7 @@ async function updateItemQuantity(item: BasketItem, quantity: number) {
     return response.data
   } catch (err: any) {
     error.value = err?.message ?? 'Failed to update item'
+    await reconcileAfterFailure()
     return null
   } finally {
     isLoading.value = false
@@ -148,6 +196,7 @@ async function removeItem(item: BasketItem) {
     return response.data
   } catch (err: any) {
     error.value = err?.message ?? 'Failed to remove item'
+    await reconcileAfterFailure()
     return null
   } finally {
     isLoading.value = false
@@ -171,6 +220,24 @@ async function initFromStorage() {
   isInitialized = true
   await loadBasket()
 }
+
+// Basket rows carry names and amounts the server rendered in the culture they
+// were fetched in. Nothing refetched them when the culture changed, so the drawer
+// kept the old language until some unrelated mutation happened to refresh it -
+// and a culture that was invalid at startup was never retried after App.vue
+// corrected it. Registered once, at module level, the same way useCulture does.
+watch(useCulture().culture, () => {
+  serialize(() => {
+    // Resolved inside the queued call, not when the watch fires. Capturing it
+    // early meant holding an id that could be obsolete by the time the queue got
+    // here — a failed restore followed by an add creates a different basket, and
+    // reloading the captured one would put the old basket back and lose the row
+    // that was just added. Falling back to the stored id covers the other case,
+    // where a restore is still pending and basket.value is null.
+    const id = basket.value?.Id ?? getStoredBasketId()
+    return id ? loadBasket(id) : Promise.resolve(null)
+  })
+})
 
 // Norce basket rows are not all products: Type 1 is a product row, anything
 // else is a fee row (freight, invoice fee) that Norce maintains itself. Rows
@@ -211,19 +278,23 @@ function resolveUnitPrice(item: BasketItem, includeVat = false) {
   return typeof original === 'number' ? original : 0
 }
 
-// Fall back to summing rows only if Summary is missing. Norce's own total also
-// accounts for fees and order-level promotions, which a client-side sum misses.
-function sumRows(includeVat: boolean) {
-  return (
-    basket.value?.Items?.reduce(
-      (sum, item) => sum + resolveUnitPrice(item, includeVat) * (item?.Quantity ?? 0),
-      0
-    ) ?? 0
+// Fall back to summing rows only if Summary is missing. Product rows only, to
+// match Summary.Items - the drawer lists each fee on its own line, so counting
+// fees here would show them twice.
+function sumProductRows(includeVat: boolean) {
+  return productItems.value.reduce(
+    (sum, item) => sum + resolveUnitPrice(item, includeVat) * (item?.Quantity ?? 0),
+    0
   )
 }
 
-const subtotal = computed(() => basket.value?.Summary?.Total?.Amount ?? sumRows(false))
-const subtotalIncVat = computed(() => basket.value?.Summary?.Total?.AmountIncVat ?? sumRows(true))
+// Summary.Items, not Summary.Total. Total includes freight and fees, so labelling
+// it "Subtotal" made the drawer show the order total under the wrong word as soon
+// as there was any freight - and the fees were already listed separately above it.
+const subtotal = computed(() => basket.value?.Summary?.Items?.Amount ?? sumProductRows(false))
+const subtotalIncVat = computed(
+  () => basket.value?.Summary?.Items?.AmountIncVat ?? sumProductRows(true)
+)
 
 /**
  * Empties the basket in Norce, then drops the local reference.
@@ -257,12 +328,19 @@ async function clearBasket() {
     for (const lineNo of lineNos) {
       await api.deleteBasketItem(current.Id, lineNo, { culture: culture.value })
     }
-  } catch (err: any) {
-    error.value = err?.message ?? 'Failed to clear basket'
-  } finally {
-    isLoading.value = false
+    // Only once every row is gone. Dropping the reference in `finally` meant a
+    // failed delete left a full basket on the server that nothing could reach
+    // again - the customer saw an empty cart and Norce still had the order.
     basket.value = null
     setStoredBasketId(null)
+  } catch (err: any) {
+    const failure = err?.message ?? 'Failed to clear basket'
+    // Reload first, then record the failure: loadBasket clears `error` on entry,
+    // so setting it before the reload would wipe the reason the reload happened.
+    await loadBasket(current.Id)
+    error.value = failure
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -278,15 +356,21 @@ export function useBasket() {
     subtotal,
     subtotalIncVat,
     resolveUnitPrice,
-    clearBasket,
-    loadBasket,
-    createBasket,
-    addItem,
-    updateItemQuantity,
-    removeItem,
+    // Serialized at the boundary, not inside: addItem calls createBasket when the
+    // basket does not exist yet, and wrapping both would deadlock on itself.
+    clearBasket: () => serialize(clearBasket),
+    loadBasket: (basketId?: string | number) => serialize(() => loadBasket(basketId)),
+    createBasket: (initialItems?: BasketItem[]) => serialize(() => createBasket(initialItems)),
+    addItem: (item: BasketItem) => serialize(() => addItem(item)),
+    updateItemQuantity: (item: BasketItem, quantity: number) =>
+      serialize(() => updateItemQuantity(item, quantity)),
+    removeItem: (item: BasketItem) => serialize(() => removeItem(item)),
     openDrawer,
     closeDrawer,
     toggleDrawer,
-    initFromStorage,
+    // Queued like the mutations. Un-awaiting it in App.vue let an add start
+    // while the restore was still in flight: the add saw no basket, created a
+    // second one, and whichever response landed last overwrote the other.
+    initFromStorage: () => serialize(initFromStorage),
   }
 }

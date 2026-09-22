@@ -52,7 +52,11 @@ onMounted(async () => {
     bffStatus.value = status;
   });
 
-  await initFromStorage();
+  // Not awaited, and still not, even though the client now has a timeout: the
+  // basket has no business deciding when the storefront renders. Awaiting it left
+  // isCultureInitialized false until the restore came back, so a slow basket meant
+  // no product view at all. Not awaiting it means the cart badge fills in late.
+  initFromStorage();
 
   try {
     const { data } = await api.getApplication();
