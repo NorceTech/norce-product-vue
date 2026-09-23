@@ -79,13 +79,38 @@ async function loadTheme() {
 
 // ?h=... asks the media CDN for a scaled copy, so a large logo upload is not
 // sent at full size to a header that shows it at a fraction of that.
+// 240 covers the 6rem logo at twice the pixel density.
 const logoUrl = computed(() =>
-    theme.value.LogoImageKey ? cdnImg(theme.value.LogoImageKey, '?h=160') : '');
+    theme.value.LogoImageKey ? cdnImg(theme.value.LogoImageKey, '?h=240') : '');
+
+// WCAG relative luminance of a #rrggbb colour.
+function luminance(hex: string): number {
+    const channel = (i: number) => {
+        const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+}
+
+// The storefront name is drawn in the primary colour on the light page. A
+// light primary colour - Thunder Bikes' yellow - all but disappears there, so
+// the name then gets an outline in the accent colour. Only then: on a colour
+// that already reads, the outline is just a border round the letters.
+//
+// 3:1 is the WCAG minimum for large text. #f7f7f7 is the body background in
+// style.css.
+const nameNeedsOutline = computed(() => {
+    const primary = theme.value.PrimaryColor;
+    if (!primary) return false;
+    const contrast = (luminance('#f7f7f7') + 0.05) / (luminance(primary) + 0.05);
+    return contrast < 3;
+});
 
 export function useTheme() {
     return {
         theme,
         logoUrl,
+        nameNeedsOutline,
         loadTheme,
     };
 }
