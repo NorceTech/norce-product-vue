@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Demo-only - the logo from the storefront theme, see composables/useTheme.ts.
 // Without a theme logo this is just the storefront name, which is all the
-// header needs for the lessons.
+// header needs for the lessons. With one, the logo sits in front of the name.
 import { ref, watch } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 
@@ -16,8 +16,11 @@ watch(logoUrl, () => { logoFailed.value = false })
 </script>
 
 <template>
-  <img v-if="logoUrl && !logoFailed" :src="logoUrl" :alt="name" class="brand-logo"
-       @error="logoFailed = true" />
+  <span v-if="logoUrl && !logoFailed" class="brand-with-logo">
+    <!-- alt is empty: the name next to it already says what the logo says. -->
+    <img :src="logoUrl" alt="" class="brand-logo" @error="logoFailed = true" />
+    <span class="brand-name">{{ name }}</span>
+  </span>
   <template v-else>{{ name }}</template>
 </template>
 

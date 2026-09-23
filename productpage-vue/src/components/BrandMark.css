@@ -1,7 +1,23 @@
-/* A theme logo takes the place of the name. Height-bound, so a wide logo and a
-   square one sit in the same header without changing its height. */
+/* A theme logo sits to the left of the name, on one line. */
+.brand-with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: .75rem;
+  white-space: nowrap;
+}
+
+/* Height-bound, so a wide logo and a square one sit in the same header
+   without changing its height. */
 .brand-logo {
   height: 4rem;
   width: auto;
-  max-width: 100%;
+  flex-shrink: 0;
+}
+
+/* Next to a logo the name gets an outline in the accent colour, so a light
+   primary colour still reads against the light page. paint-order puts the
+   stroke behind the fill, so the outline does not eat into the letters. */
+.brand-name {
+  -webkit-text-stroke: 4px var(--accent);
+  paint-order: stroke fill;
 }
