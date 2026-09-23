@@ -138,8 +138,11 @@ a.product-card:hover {
 .placeholder {
   width: 100%;
   height: 100%;
+  /* Norce Ljusgrå behind a picture symbol at 45% of the height, so the empty
+     area reads as a missing image rather than as white space. */
+  background-color: #EFF3FA;
   background-image: url('@/assets/product-placeholder.svg');
-  background-size: contain;
+  background-size: auto 45%;
   background-repeat: no-repeat;
   background-position: center;
 }
