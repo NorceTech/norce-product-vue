@@ -26,3 +26,12 @@
   -webkit-text-stroke: 4px var(--accent);
   paint-order: stroke fill;
 }
+
+/* On a phone the logo moves above the name, so the name keeps the width. */
+@media (max-width: 560px) {
+  .brand-with-logo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .5rem;
+  }
+}
