@@ -5,6 +5,8 @@ import api, { setBffHealthCallback } from '@/services/api'
 import LanguageSelector from '@/components/LanguageSelector.vue'
 import { useCulture } from '@/composables/useCulture'
 import { setMediaClient } from '@/composables/useHelpers'
+import { useBasket } from '@/composables/useBasket'
+import CartDrawer from '@/components/CartDrawer.vue'
 import { useTheme } from '@/composables/useTheme'
 import BrandMark from '@/components/BrandMark.vue'
 
@@ -41,6 +43,7 @@ const cultures = ref<Culture[]>([]);
 const applicationName = ref<string>('');
 const { culture: globalCulture, updateCulture } = useCulture();
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
+const { itemCount, toggleDrawer, initFromStorage } = useBasket();
 
 // Demo-only storefront theme - not part of the lesson, see useTheme.ts.
 // Loaded after the application (the logo needs the media client id) and again
@@ -53,6 +56,12 @@ onMounted(async () => {
   setBffHealthCallback((status) => {
     bffStatus.value = status;
   });
+
+  // Not awaited, and still not, even though the client now has a timeout: the
+  // basket has no business deciding when the storefront renders. Awaiting it left
+  // isCultureInitialized false until the restore came back, so a slow basket meant
+  // no product view at all. Not awaiting it means the cart badge fills in late.
+  initFromStorage();
 
   try {
     const { data } = await api.getApplication();
@@ -105,6 +114,10 @@ onMounted(async () => {
       </a>
       <div class="right-content">
         <LanguageSelector :cultures="cultures" v-if="cultures.length > 0" />
+        <button class="cart-button" @click="toggleDrawer">
+          {{ $t('cart.button') }}
+          <span v-if="itemCount" class="cart-badge">{{ itemCount }}</span>
+        </button>
       </div>
     </div>
   </header>
@@ -114,6 +127,7 @@ onMounted(async () => {
   </div>
 
   <RouterView :key="globalCulture" />
+  <CartDrawer />
 
   <div v-if="visible" class="debug-popup">
     <div class="debug-popup-content">
@@ -133,14 +147,21 @@ onMounted(async () => {
 
 .header-content {
   display: flex;
-  /* On a narrow screen the language selector drops below the name rather
-     than squeezing it. */
-  flex-wrap: wrap;
   gap: 1rem;
   justify-content: space-between;
   align-items: center;
   padding-top: 1rem;
   padding-bottom: 1rem;
+}
+
+/* On a phone or tablet the language selector and the cart drop below the
+   name rather than squeezing it. On a wider screen a long name wraps onto two
+   lines instead, and the controls stay on the right. 800px is the same
+   breakpoint as the filter toggle in ProductListView. */
+@media (max-width: 800px) {
+  .header-content {
+    flex-wrap: wrap;
+  }
 }
 
 .right-content {

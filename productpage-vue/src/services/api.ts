@@ -9,6 +9,13 @@ let bffHealthCallback: ((status: 'ok' | 'error') => void) | null = null;
 
 const apiClient = axios.create({
   baseURL: '/api',
+  // Without this a request can hang for as long as the browser allows, and every
+  // structure built on top inherits the hang: an awaited basket restore blocked
+  // the storefront from rendering at all, and moving it into the mutation queue
+  // only moved the symptom - a restore that never settles leaves the queue stuck
+  // and no item can be added for the rest of the session. A request that ends,
+  // one way or the other, is what makes both of those merely slow.
+  timeout: 15000,
 });
 
 apiClient.interceptors.request.use(config => {
@@ -70,6 +77,21 @@ export default {
   },
   getApplication() {
     return apiClient.get('/application');
+  },
+  getBasket(basketId: string | number) {
+    return apiClient.get(`/basket/${basketId}`);
+  },
+  createBasket(payload: any) {
+    return apiClient.post('/basket', payload);
+  },
+  addBasketItem(basketId: string | number, payload: any) {
+    return apiClient.post(`/basket/${basketId}/items`, payload);
+  },
+  updateBasketItem(basketId: string | number, itemId: string | number, payload: any) {
+    return apiClient.put(`/basket/${basketId}/items/${itemId}`, payload);
+  },
+  deleteBasketItem(basketId: string | number, lineNo: string | number, params?: any) {
+    return apiClient.delete(`/basket/${basketId}/items/${lineNo}`, { params });
   },
   getTheme() {
     return apiClient.get('/theme');
