@@ -61,8 +61,10 @@ const formattedPrice = computed(() => {
 });
 
 const imageOptions = computed(() => {
-  // Height parameter for the CDN - only a small variant difference
-  return props.variant === 'relation' ? '?h=140' : '?h=250';
+  // Size for the CDN. The list card's image is as wide as the card - up to
+  // about 350px on a phone - so it is asked for by width, with room for a
+  // high-density screen.
+  return props.variant === 'relation' ? '?h=140' : '?w=600';
 });
 </script>
 
@@ -91,11 +93,10 @@ const imageOptions = computed(() => {
   color: #777;
 }
 
-/* variant-specific height */
-.variant-list .image-container {
-  height: 180px;
-}
-
+/* variant-specific height. The list card has none: its image area is the
+   square below at the card's full width, so the image grows with the card.
+   A fixed 180px height kept it a small square in the middle of a wide card
+   on a phone. */
 .variant-relation .image-container {
   height: 140px;
 }
