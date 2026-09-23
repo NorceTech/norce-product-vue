@@ -238,3 +238,64 @@
 .filter-range {
     padding: 0.35rem 0.95rem 0.85rem;
 }
+
+/* =========================
+   Narrow screens
+   ========================= */
+/* The 8rem side padding and the 440px sidebar are sized for a wide screen.
+   Below that they shrink, and on a tablet or phone the filters move above
+   the products instead of beside them. */
+@media (max-width: 1200px) {
+  .product-list-container {
+    padding: 1.5rem 1.5rem 4rem;
+  }
+
+  .sidebar {
+    width: 300px;
+  }
+}
+
+@media (max-width: 800px) {
+  .product-list-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .sidebar .filter-toggle {
+    display: flex;
+  }
+
+  .filter-panel.folded {
+    display: none;
+  }
+
+  /* The toggle already says what the panel is. */
+  .filter-panel-title {
+    display: none;
+  }
+
+  .filter-panel {
+    margin-top: 0.5rem;
+  }
+}
+
+/* Only shown on narrow screens, see the media query above. */
+.filter-toggle {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}

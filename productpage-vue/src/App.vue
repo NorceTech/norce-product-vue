@@ -133,6 +133,10 @@ onMounted(async () => {
 
 .header-content {
   display: flex;
+  /* On a narrow screen the language selector drops below the name rather
+     than squeezing it. */
+  flex-wrap: wrap;
+  gap: 1rem;
   justify-content: space-between;
   align-items: center;
   padding-top: 1rem;

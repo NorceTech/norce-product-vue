@@ -36,6 +36,8 @@
   },
   "productListView": {
     "filters": "Filters",
+    "showFilters": "Show filters",
+    "hideFilters": "Hide filters",
     "currencyUnit": "kr",
     "inStock": "In stock",
     "searchPlaceholder": "Search products",

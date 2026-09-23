@@ -36,6 +36,8 @@
   },
   "productListView": {
     "filters": "Filter",
+    "showFilters": "Visa filter",
+    "hideFilters": "Dölj filter",
     "currencyUnit": "kr",
     "inStock": "I lager",
     "searchPlaceholder": "Sök produkter",
