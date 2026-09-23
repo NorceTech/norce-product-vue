@@ -84,6 +84,14 @@ const imageOptions = computed(() => {
   height: auto;               /* let the card grow with its content */
   min-height: 320px;          /* stable height */
   max-height: none;           /* no hard maximum */
+
+  transition: border-color .15s, box-shadow .15s;
+}
+
+/* Only a card that links somewhere reacts to the pointer. */
+a.product-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .08);
 }
 
 /* A product we could not build a link for: shown, but visibly not clickable. */
@@ -115,6 +123,17 @@ const imageOptions = computed(() => {
 }
 
 
+/* On a phone the image runs to the card's edges; on a wider screen it keeps
+   the card's 12px padding. The negative margin undoes that padding, and the
+   top corners follow the card's radius. */
+@media (max-width: 600px) {
+  .variant-list .image-container {
+    width: calc(100% + 24px);
+    margin: -12px -12px 0;
+    border-radius: 8px 8px 0 0;
+  }
+}
+
 /* Placeholder for a missing image */
 .placeholder {
   width: 100%;
@@ -126,9 +145,15 @@ const imageOptions = computed(() => {
 }
 
 .product-name {
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.25;
   font-weight: 600;
-  min-height: 2.5rem;   /* two lines of text -> stable height */
+  min-height: 2.5em;    /* two lines of text -> stable height */
+  /* A longer name stops at two lines instead of pushing the price down. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 

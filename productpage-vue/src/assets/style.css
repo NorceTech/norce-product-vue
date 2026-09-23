@@ -124,14 +124,6 @@ h3 {
     box-shadow: 0 2px 6px rgba(0, 0, 0, .04)
 }
 
-/* product-card = galleri + info */
-.product-card {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3rem;
-    align-items: flex-start
-}
-
 /* ---------------------------------------------------------------------
    5. Component rules
    ------------------------------------------------------------------ */
@@ -613,10 +605,6 @@ h3 {
    6. Responsive tweaks
    ------------------------------------------------------------------ */
 @media (max-width: 800px) {
-    .product-card {
-        flex-direction: column;
-    }
-
     .gallery,
     .product-info {
         max-width: 100%;
