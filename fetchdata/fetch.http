@@ -116,7 +116,7 @@ applicationId: {{application_id}}
 
 >>! ../mockdata/cultures.json
 
-### Get theme product (hidden product carrying the storefront theme)
+### Get theme product (demo-only: hidden product carrying the storefront theme, see bff/theme.js)
 # statusSeed 4,5: the theme product is Hidden and has no price, and a SKU
 # without a price is only returned when the seed contains 5.
 # A PartNo that does not exist gives 200 with an empty body, not an error.

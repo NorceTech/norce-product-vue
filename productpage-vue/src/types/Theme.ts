@@ -1,3 +1,5 @@
+// Demo-only - see composables/useTheme.ts.
+//
 // Storefront theme from GET /api/theme. The BFF has already validated every
 // value (hex colours, a whitelisted font), and leaves out anything missing or
 // invalid - so each field is optional, and an empty object means the default

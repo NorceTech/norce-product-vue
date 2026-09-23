@@ -6,6 +6,7 @@ import LanguageSelector from '@/components/LanguageSelector.vue'
 import { useCulture } from '@/composables/useCulture'
 import { setMediaClient } from '@/composables/useHelpers'
 import { useTheme } from '@/composables/useTheme'
+import BrandMark from '@/components/BrandMark.vue'
 
 // Debug overlay — shows API errors during development
 type DebugError = { context: string; message: string };
@@ -41,14 +42,10 @@ const applicationName = ref<string>('');
 const { culture: globalCulture, updateCulture } = useCulture();
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
 
-// Brand colour, logo font and logo. Loaded after the application, because the
-// logo URL needs the media client id, and again on every culture switch - the
-// BFF decides whether the theme differs per culture, so the frontend just asks.
-const { logoUrl, loadTheme } = useTheme();
-// A logo that fails to load falls back to the name in the logo font rather
-// than leaving a broken image in the header.
-const logoFailed = ref(false);
-watch(logoUrl, () => { logoFailed.value = false; });
+// Demo-only storefront theme - not part of the lesson, see useTheme.ts.
+// Loaded after the application (the logo needs the media client id) and again
+// on every culture switch.
+const { loadTheme } = useTheme();
 watch(globalCulture, () => { loadTheme(); });
 
 onMounted(async () => {
@@ -94,7 +91,6 @@ onMounted(async () => {
     isCultureInitialized.value = true;
   }
 
-  // Not awaited: the storefront renders in its default style meanwhile.
   loadTheme();
 });
 </script>
@@ -105,9 +101,7 @@ onMounted(async () => {
       <!-- The storefront name comes from GetApplication; the translated
            string is only a fallback for before it has loaded. -->
       <a href="/" class="brand">
-        <img v-if="logoUrl && !logoFailed" :src="logoUrl" :alt="applicationName || $t('header.brand')"
-             class="brand-logo" @error="logoFailed = true" />
-        <template v-else>{{ applicationName || $t('header.brand') }}</template>
+        <BrandMark :name="applicationName || $t('header.brand')" />
       </a>
       <div class="right-content">
         <LanguageSelector :cultures="cultures" v-if="cultures.length > 0" />

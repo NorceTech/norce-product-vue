@@ -1,0 +1,7 @@
+/* A theme logo takes the place of the name. Height-bound, so a wide logo and a
+   square one sit in the same header without changing its height. */
+.brand-logo {
+  height: 4rem;
+  width: auto;
+  max-width: 100%;
+}

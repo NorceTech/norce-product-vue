@@ -3,6 +3,14 @@ import api from '@/services/api';
 import { cdnImg } from '@/composables/useHelpers';
 import type { Theme } from '@/types';
 
+// Demo plumbing - not part of what this app teaches, and not a pattern to copy.
+//
+// This lets one demo codebase look different per tenant without a CMS. In a
+// real storefront, brand styling belongs in the frontend code (style.css here)
+// or in a CMS - not in a hidden product in the PIM, which is where /api/theme
+// reads it from (see bff/theme.js). Nothing else depends on it: without a
+// theme, the storefront shows its default style.
+//
 // Storefront theme from /api/theme: brand colour, accent colour, logo font and
 // logo. The BFF validates every value, so this file only has to put them in
 // place - and take them away again, because a culture switch can go from a

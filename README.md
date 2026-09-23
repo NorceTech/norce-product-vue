@@ -21,6 +21,7 @@ This storefront covers the core topics of the course:
 ```
 ├── bff/                    # Node.js Express BFF
 │   ├── index.js            # All endpoints and OAuth logic
+│   ├── theme.js            # Demo-only storefront theme, not part of the lessons
 │   └── .env.example        # Environment variable template
 ├── productpage-vue/        # Vue 3 frontend (Vite)
 │   └── src/
@@ -226,6 +227,20 @@ else looks fine.
 `/api/application` returns `{ Id, Name, Url, Cultures }`. It used to be
 `/api/cultures` and threw away everything but the culture list — including
 `Name`, which is the storefront's own title and is what the header shows.
+
+
+## Demo theme (not part of the lessons)
+
+The demo can take a brand colour, an accent colour, a logo font and a logo from
+a hidden product in the PIM, so that one codebase looks different per tenant.
+That is demo plumbing, not an example to follow: in a real storefront, brand
+styling belongs in the frontend code or in a CMS, not in a product.
+
+It lives beside the lesson code and nothing depends on it — `bff/theme.js`
+(`GET /api/theme`), `useTheme.ts` and `BrandMark.vue`. Without a theme product
+the storefront shows its default style, so it can be ignored while following
+the course. How the product is set up is described at the top of
+`bff/theme.js`.
 
 
 ## Branches
