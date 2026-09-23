@@ -49,7 +49,7 @@ let themePartNo;
 
 // Only these fonts can be chosen. The frontend loads them from Google Fonts,
 // and a whitelist keeps PIM data from injecting anything into a stylesheet.
-const themeFonts = ['Inter', 'Montserrat', 'Raleway', 'Oswald', 'Playfair Display', 'Lora', 'Roboto Slab', 'Pacifico'];
+const themeFonts = ['Inter', 'Montserrat', 'Raleway', 'Oswald', 'Playfair Display', 'Lora', 'Roboto Slab', 'Pacifico', 'Racing Sans One'];
 const hexColor = /^#[0-9a-f]{6}$/i;
 
 // Parametrics are matched on Code, which is the same in every culture. Name
