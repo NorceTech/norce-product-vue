@@ -56,6 +56,9 @@ function applyTheme(next: Theme) {
     theme.value = next;
     setVar('--primary', next.PrimaryColor);
     setVar('--accent', next.AccentColor);
+    // Text drawn on those colours - see textOn below.
+    setVar('--on-primary', next.PrimaryColor && textOn(next.PrimaryColor));
+    setVar('--on-accent', next.AccentColor && textOn(next.AccentColor));
     // Quoted, because family names like "Playfair Display" contain spaces.
     setVar('--logo-font', next.LogoFont && `"${next.LogoFont}"`);
     loadFont(next.LogoFont);
@@ -83,7 +86,7 @@ async function loadTheme() {
 const logoUrl = computed(() =>
     theme.value.LogoImageKey ? cdnImg(theme.value.LogoImageKey, '?h=240') : '');
 
-// WCAG relative luminance of a #rrggbb colour.
+// WCAG relative luminance of a #rrggbb colour, and the contrast between two.
 function luminance(hex: string): number {
     const channel = (i: number) => {
         const c = parseInt(hex.slice(i, i + 2), 16) / 255;
@@ -92,18 +95,33 @@ function luminance(hex: string): number {
     return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
 }
 
+function contrast(a: string, b: string): number {
+    const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (light + 0.05) / (dark + 0.05);
+}
+
+// Buttons, badges and the like put white text on the primary or accent
+// colour. On a light theme colour - Thunder Bikes' yellow (1.8:1), Open Demo's
+// pink (2.9:1) - white all but disappears, so those labels switch to Norce
+// Blåsvart. White stays as long as it reaches 3:1, the same line as the name
+// outline: the default red is 4.2:1 against white, and a theme that repeats
+// the default should look like the default. style.css falls back to white
+// without a theme.
+const DARK_TEXT = '#10141D';
+function textOn(background: string): string {
+    return contrast(background, '#ffffff') >= 3 ? '#ffffff' : DARK_TEXT;
+}
+
 // The storefront name is drawn in the primary colour on the light page. A
-// light primary colour - Thunder Bikes' yellow - all but disappears there, so
-// the name then gets an outline in the accent colour. Only then: on a colour
-// that already reads, the outline is just a border round the letters.
+// light primary colour all but disappears there, so the name then gets an
+// outline in the accent colour. Only then: on a colour that already reads,
+// the outline is just a border round the letters.
 //
 // 3:1 is the WCAG minimum for large text. #f7f7f7 is the body background in
 // style.css.
 const nameNeedsOutline = computed(() => {
     const primary = theme.value.PrimaryColor;
-    if (!primary) return false;
-    const contrast = (luminance('#f7f7f7') + 0.05) / (luminance(primary) + 0.05);
-    return contrast < 3;
+    return !!primary && contrast(primary, '#f7f7f7') < 3;
 });
 
 export function useTheme() {

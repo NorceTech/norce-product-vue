@@ -92,7 +92,7 @@
 .filter-badge {
   flex-shrink: 0;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary, #fff);
   border-radius: 999px;
   padding: 0 0.4rem;
   font-size: 0.72rem;

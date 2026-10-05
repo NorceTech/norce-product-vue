@@ -350,7 +350,7 @@ h3 {
 
 .btn.primary {
     background: var(--primary);
-    color: #fff
+    color: var(--on-primary, #fff)
 }
 
 .btn.primary:hover {
@@ -373,7 +373,7 @@ h3 {
 
 .btn-outline:hover {
     background: var(--primary);
-    color: #fff
+    color: var(--on-primary, #fff)
 }
 
 /* --- Badges --------------------------------------------------------- */
@@ -387,7 +387,7 @@ h3 {
 
 .promo-badge {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary, #fff);
     padding: .4rem 1rem;
     font-size: .8rem;
     font-weight: 700;
@@ -413,7 +413,7 @@ h3 {
 
 .flag-badge {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent, #fff);
     padding: .35rem .9rem;
     font-size: .75rem;
     font-weight: 600;
@@ -447,7 +447,7 @@ h3 {
     height: 1.4rem;
     border-radius: 999px;
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary, #fff);
     font-size: .75rem;
     margin-left: .5rem
 }
