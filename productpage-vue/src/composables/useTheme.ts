@@ -41,14 +41,22 @@ function setVar(name: string, value: string | undefined) {
 // The logo font comes from Google Fonts, like the default fonts in index.html.
 // The BFF only lets whitelisted names through, and encodeURIComponent keeps
 // the name from ever being read as anything but a family name.
+// A culture switch reloads the theme, usually with the same font - the link
+// is then left alone rather than removed and fetched again.
 function loadFont(family: string | undefined) {
-    document.getElementById(FONT_LINK_ID)?.remove();
-    if (!family) return;
+    const href = family
+        ? `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`
+        : '';
+    const current = document.getElementById(FONT_LINK_ID) as HTMLLinkElement | null;
+    if (current?.getAttribute('href') === href) return;
+
+    current?.remove();
+    if (!href) return;
 
     const link = document.createElement('link');
     link.id = FONT_LINK_ID;
     link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`;
+    link.href = href;
     document.head.appendChild(link);
 }
 

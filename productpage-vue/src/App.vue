@@ -154,10 +154,11 @@ onMounted(async () => {
   padding-bottom: 1rem;
 }
 
-/* On a phone or tablet the language selector and the cart drop below the
-   name rather than squeezing it. On a wider screen a long name wraps onto two
-   lines instead, and the controls stay on the right. 800px is the same
-   breakpoint as the filter toggle in ProductListView. */
+/* On a phone or tablet the language selector and the cart may drop below the
+   name when the two do not fit side by side, rather than squeezing it. A
+   short name keeps them on the right. On a wider screen a long name wraps
+   onto two lines instead, and the controls stay on the right. 800px is the
+   same breakpoint as the filter toggle in ProductListView. */
 @media (max-width: 800px) {
   .header-content {
     flex-wrap: wrap;
