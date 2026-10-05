@@ -14,9 +14,11 @@
 // and a storefront BFF should not carry admin credentials to read a colour.
 
 const cache = require('memory-cache');
+const fs = require('fs');
+const path = require('path');
 
 // Handed over from index.js by registerTheme at the bottom of this file.
-let apiConfig, fetchData, readJson, useMockData, cacheDuration;
+let apiConfig, fetchData, readJson, useMockData, cacheDuration, dataDir;
 
 // The theme product is set up like this in Norce:
 //   - PartNo npv-theme-<applicationId>. PartNo lookups are client wide, not per
@@ -136,13 +138,25 @@ async function readThemeProduct(cultureCode) {
 // The shaped theme is cached, not the raw response, so a missing theme product
 // is cached too instead of asking Norce again on every page load. A failed
 // call is not cached and is retried on the next load.
+//
+// A culture's theme is built on top of the base theme, and a culture read
+// also carries the default values for everything the culture does not set.
+// So a culture entry remembers which base it was built on (baseVersion), and is
+// read again - past fetchData's raw cache too - once the base has been
+// refreshed. Otherwise an edit to the default would reach the default culture
+// an hour before it reached the others.
+// A counter rather than a timestamp: two reads in the same millisecond would
+// otherwise look like the same base.
+let baseVersion = 0;
+
 async function loadTheme(cultureCode) {
     let base = cache.get('theme');
     if (!base) {
         const product = await readThemeProduct();
         base = {
             theme: shapeTheme(product),
-            perCulture: themeValues(product).theme_per_culture === 'True'
+            perCulture: themeValues(product).theme_per_culture === 'True',
+            version: ++baseVersion
         };
         if (!Object.keys(base.theme).length) {
             console.log(`[THEME] No theme values on ${themePartNo}; using the default style.`);
@@ -153,28 +167,43 @@ async function loadTheme(cultureCode) {
     if (!base.perCulture || !cultureCode) return base.theme;
 
     const cacheKey = `theme_${cultureCode}`;
-    let theme = cache.get(cacheKey);
-    if (!theme) {
-        // Values that are missing or invalid in this culture keep the default
-        // culture's value rather than dropping to the default style.
-        try {
-            theme = { ...base.theme, ...shapeTheme(await readThemeProduct(cultureCode)) };
-        } catch (error) {
-            console.warn(`[THEME] Could not read ${themePartNo} in ${cultureCode}; using the default culture's theme.`, error.message);
-            return base.theme;
-        }
-        cache.put(cacheKey, theme, cacheDuration);
+    const cached = cache.get(cacheKey);
+    if (cached && cached.baseVersion === base.version) return cached.theme;
+
+    // Built on an older base, or never read: drop the raw response too, so the
+    // read below asks Norce instead of fetchData's cache.
+    if (cached) cache.del(`theme_product_${cultureCode}`);
+
+    // Values that are missing or invalid in this culture keep the default
+    // culture's value rather than dropping to the default style.
+    let theme;
+    try {
+        theme = { ...base.theme, ...shapeTheme(await readThemeProduct(cultureCode)) };
+    } catch (error) {
+        console.warn(`[THEME] Could not read ${themePartNo} in ${cultureCode}; using the default culture's theme.`, error.message);
+        return base.theme;
     }
+    cache.put(cacheKey, { theme, baseVersion: base.version }, cacheDuration);
     return theme;
 }
 
 module.exports = function registerTheme(app, deps) {
-    ({ apiConfig, fetchData, readJson, useMockData, cacheDuration } = deps);
+    ({ apiConfig, fetchData, readJson, useMockData, cacheDuration, dataDir } = deps);
     themePartNo = process.env.THEME_PARTNO
         || (apiConfig.application_id && `npv-theme-${apiConfig.application_id}`);
 
     app.get('/api/theme', async (req, res) => {
         if (useMockData) {
+            // Refreshing the mock from fetch.http against an application with
+            // no theme product saves Norce's empty 200 body as an empty file.
+            // That is "no theme", as it is in live mode, not broken mock data.
+            // A missing file is left to readJson, which reports it.
+            let raw = null;
+            try { raw = fs.readFileSync(path.join(dataDir, 'theme.json'), 'utf8'); } catch { }
+            if (raw !== null && !raw.trim()) {
+                res.json({});
+                return;
+            }
             const data = readJson('theme.json', res);
             if (data) {
                 res.json(shapeTheme(data));
