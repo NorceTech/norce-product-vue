@@ -354,7 +354,10 @@ h3 {
 }
 
 .btn.primary:hover {
-    background: #c92d3a
+    /* 15% darker than the primary colour rather than a fixed red, so the
+       hover follows a theme and its label colour (--on-primary) still reads.
+       For the default red this is #c4303c, next to the old fixed #c92d3a. */
+    background: color-mix(in srgb, var(--primary) 85%, black)
 }
 
 .btn-outline {
