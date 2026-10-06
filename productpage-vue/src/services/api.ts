@@ -111,4 +111,7 @@ export default {
   updateCheckoutShipping(orderId: string, payload: any) {
     return apiClient.put(`/checkout/orders/${orderId}/customer/shipping`, payload);
   },
+  getTheme() {
+    return apiClient.get('/theme');
+  },
 };

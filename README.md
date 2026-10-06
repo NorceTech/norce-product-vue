@@ -21,6 +21,7 @@ This checkout demo builds on the storefront and adds:
 ```
 ├── bff/                    # Node.js Express BFF
 │   ├── index.js            # All endpoints: products, basket, NCO
+│   ├── theme.js            # Demo-only storefront theme, not part of the lessons
 │   └── .env.example        # Environment variable template
 ├── productpage-vue/        # Vue 3 frontend (Vite)
 │   └── src/
@@ -81,6 +82,14 @@ host from the client id in `GetApplication`, so there is nothing else to change.
 **Checkout writes.** The basket and NCO endpoints create rows in whatever tenant
 the BFF is pointed at, so the switch that changes tenant also decides where an
 order attempt lands. Live mode says so at startup.
+
+**`-Mock` is the opposite:** it serves the `/mockdata` fixtures whatever
+`bff/.env` says, and pins the image host to playground, where the fixtures come
+from. It cannot be combined with `-a`, `-s` or `-e`.
+
+```powershell
+.\run.ps1 -Mock
+```
 
 ### Option B: Manual Start
 
@@ -158,16 +167,17 @@ Both `.env` files are gitignored.
 | `SHOPPING_SERVICE` | Shopping service path | `/commerce/shopping/1.1` |
 | `LOG_REQUESTS` | Log incoming BFF requests | `true` |
 
-Mock mode is only ever entered on purpose, but "on purpose" has three sources
+Mock mode is only ever entered on purpose, but "on purpose" has four sources
 and they are easy to confuse:
 
 - `bff/.env.example` ships with `MOCK_DATA=true`, so copying it gives you the
   fixtures until you change that line.
 - With no `bff/.env` at all, `run.ps1` sets `MOCK_DATA=true` for that run and
   says so, which is what keeps a fresh clone working.
+- `run.ps1 -Mock` sets it to `true` for that run, whatever `bff/.env` says.
 - Naming a tenant or a host (`-a`, `-s`, `-e`) sets it to `false` instead.
 
-What is gone is the fourth source: falling into mock mode because the
+What is gone is the fifth source: falling into mock mode because the
 configuration was incomplete. If `MOCK_DATA` is not `true` and any of
 `API_BASE`, `OAUTH_ID`, `OAUTH_SECRET`, `APPLICATION_ID` or `CATEGORY_SEED` is
 missing, the BFF names what is absent and stops — it does not serve fixtures of
@@ -301,6 +311,20 @@ read from the request body — the price list decides the price, server side.
 | `POST /api/checkout/nonpsp/.../complete` | Complete payment | `checkout-complete.json` |
 | `PUT /api/checkout/orders/:id/customer/billing` | Update billing | `checkout-billing.json` |
 | `PUT /api/checkout/orders/:id/customer/shipping` | Update shipping | `checkout-shipping.json` |
+
+
+## Demo theme (not part of the lessons)
+
+The demo can take a brand colour, an accent colour, a logo font and a logo from
+a hidden product in the PIM, so that one codebase looks different per tenant.
+That is demo plumbing, not an example to follow: in a real storefront, brand
+styling belongs in the frontend code or in a CMS, not in a product.
+
+It lives beside the lesson code and nothing depends on it — `bff/theme.js`
+(`GET /api/theme`), `useTheme.ts` and `BrandMark.vue`. Without a theme product
+the storefront shows its default style, so it can be ignored while following
+the course. How the product is set up is described at the top of
+`bff/theme.js`.
 
 
 ## Branches
