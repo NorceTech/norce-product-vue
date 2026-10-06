@@ -111,6 +111,8 @@ export default {
   updateCheckoutShipping(orderId: string, payload: any) {
     return apiClient.put(`/checkout/orders/${orderId}/customer/shipping`, payload);
   },
+  // Demo-only, not a lesson endpoint and not a pattern for a storefront API -
+  // see composables/useTheme.ts and bff/theme.js.
   getTheme() {
     return apiClient.get('/theme');
   },
