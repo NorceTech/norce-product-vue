@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="No product image">
-  <rect x="8" y="16" width="80" height="64" rx="6" fill="none" stroke="#9ca3af" stroke-width="3"/>
-  <circle cx="32" cy="38" r="7" fill="#9ca3af"/>
-  <path d="M16 72 L38 50 L54 66 L64 56 L80 72 Z" fill="#9ca3af"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96" width="120" height="96">
+  <!-- Shown when a product has no image. Norce palette: Blå 1, Lila 1, Rosa 1
+       and Gråblå. No text, so it needs no translation. The light background
+       comes from the CSS around it, so the same file fits a square card and
+       the product page's 16:9 hero. -->
+  <rect x="4" y="4" width="112" height="88" rx="12" fill="#FFFFFF" stroke="#AEC1C8" stroke-width="3"/>
+  <circle cx="38" cy="34" r="10" fill="#EB59F7"/>
+  <path d="M46 84 L80 46 L108 76 L108 84 Z" fill="#9C46F6"/>
+  <path d="M12 84 L46 50 L64 68 L78 56 L100 84 Z" fill="#3259F0"/>
 </svg>

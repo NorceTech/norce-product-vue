@@ -1,9 +1,24 @@
 <template>
   <div class="product-list-container">
     <aside class="sidebar">
+      <!-- On a narrow screen the filters sit above the products, and open in
+           full they push every product below the fold. So there they fold away
+           behind this button, which also counts the active filters. On a wide
+           screen the button is hidden and the panel always shows. -->
+      <button
+          type="button"
+          class="filter-toggle"
+          :aria-expanded="filtersOpen"
+          aria-controls="filter-panel"
+          @click="filtersOpen = !filtersOpen"
+      >
+        <span>{{ filtersOpen ? $t('productListView.hideFilters') : $t('productListView.showFilters') }}</span>
+        <span v-if="activeFilterCount" class="filter-badge">{{ activeFilterCount }}</span>
+      </button>
+
       <!-- The heading lives inside the panel so the two read as one block and
            the panel lines up with the top of the results. -->
-      <div class="filter-panel">
+      <div id="filter-panel" class="filter-panel" :class="{ folded: !filtersOpen }">
         <h2 class="filter-panel-title">{{ $t('productListView.filters') }}</h2>
 
         <details
@@ -240,6 +255,11 @@ watch(activeSearch, () => debouncedFetch());
 // a badge with the number of active values, so nothing hides silently.
 const expandedGroups = ref<Set<string>>(new Set());
 let hasSeededGroups = false;
+
+// Narrow screens only - see the filter toggle in the template.
+const filtersOpen = ref(false);
+const activeFilterCount = computed(() =>
+    Object.values(selectedFilters.value).reduce((sum, values) => sum + values.length, 0));
 
 function isGroupOpen(key: string) {
   return expandedGroups.value.has(key);

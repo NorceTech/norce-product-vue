@@ -211,7 +211,7 @@ function commit() {
 }
 
 .range-input:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
 .range-labels {
