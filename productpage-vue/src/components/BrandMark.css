@@ -1,0 +1,37 @@
+/* A theme logo sits to the left of the name. The name is a size up from the
+   plain header, so the logo does not dwarf it. min-width: 0 lets the name wrap
+   beside the logo on a narrow screen instead of running under the language
+   selector. */
+.brand-with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  font-size: 1.25em;
+  line-height: 1;
+}
+
+/* Height-bound and sized from the name, so a wide logo and a square one sit in
+   the same header and stay in proportion to the text. */
+.brand-logo {
+  height: 1.2em;
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* Only when the primary colour is too light to read on the page - see
+   nameNeedsOutline in useTheme.ts. paint-order puts the stroke behind the
+   fill, so the outline does not eat into the letters. */
+.brand-name.outlined {
+  -webkit-text-stroke: 4px var(--accent);
+  paint-order: stroke fill;
+}
+
+/* On a phone the logo moves above the name, so the name keeps the width. */
+@media (max-width: 560px) {
+  .brand-with-logo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .5rem;
+  }
+}

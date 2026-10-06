@@ -93,4 +93,7 @@ export default {
   deleteBasketItem(basketId: string | number, lineNo: string | number, params?: any) {
     return apiClient.delete(`/basket/${basketId}/items/${lineNo}`, { params });
   },
+  getTheme() {
+    return apiClient.get('/theme');
+  },
 };

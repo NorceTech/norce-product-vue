@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, provide, onMounted, inject, Ref } from 'vue'
+import { ref, provide, onMounted, inject, watch, Ref } from 'vue'
 import { RouterView } from 'vue-router'
 import api, { setBffHealthCallback } from '@/services/api'
 import LanguageSelector from '@/components/LanguageSelector.vue'
@@ -7,6 +7,8 @@ import { useCulture } from '@/composables/useCulture'
 import { setMediaClient } from '@/composables/useHelpers'
 import { useBasket } from '@/composables/useBasket'
 import CartDrawer from '@/components/CartDrawer.vue'
+import { useTheme } from '@/composables/useTheme'
+import BrandMark from '@/components/BrandMark.vue'
 
 // Debug overlay — shows API errors during development
 type DebugError = { context: string; message: string };
@@ -42,6 +44,12 @@ const applicationName = ref<string>('');
 const { culture: globalCulture, updateCulture } = useCulture();
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
 const { itemCount, toggleDrawer, initFromStorage } = useBasket();
+
+// Demo-only storefront theme - not part of the lesson, see useTheme.ts.
+// Loaded after the application (the logo needs the media client id) and again
+// on every culture switch.
+const { loadTheme } = useTheme();
+watch(globalCulture, () => { loadTheme(); });
 
 onMounted(async () => {
   // Register BFF health callback
@@ -91,6 +99,8 @@ onMounted(async () => {
   } finally {
     isCultureInitialized.value = true;
   }
+
+  loadTheme();
 });
 </script>
 
@@ -99,7 +109,9 @@ onMounted(async () => {
     <div class="container header-content">
       <!-- The storefront name comes from GetApplication; the translated
            string is only a fallback for before it has loaded. -->
-      <a href="/" class="brand">{{ applicationName || $t('header.brand') }}</a>
+      <a href="/" class="brand">
+        <BrandMark :name="applicationName || $t('header.brand')" />
+      </a>
       <div class="right-content">
         <LanguageSelector :cultures="cultures" v-if="cultures.length > 0" />
         <button class="cart-button" @click="toggleDrawer">
@@ -135,10 +147,22 @@ onMounted(async () => {
 
 .header-content {
   display: flex;
+  gap: 1rem;
   justify-content: space-between;
   align-items: center;
   padding-top: 1rem;
   padding-bottom: 1rem;
+}
+
+/* On a phone or tablet the language selector and the cart may drop below the
+   name when the two do not fit side by side, rather than squeezing it. A
+   short name keeps them on the right. On a wider screen a long name wraps
+   onto two lines instead, and the controls stay on the right. 800px is the
+   same breakpoint as the filter toggle in ProductListView. */
+@media (max-width: 800px) {
+  .header-content {
+    flex-wrap: wrap;
+  }
 }
 
 .right-content {

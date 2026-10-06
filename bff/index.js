@@ -489,6 +489,9 @@ app.get('/api/application', async (req, res) => {
     }
 });
 
+// Demo-only: the storefront theme (brand colour, logo font, logo). Not part of
+// what this app teaches and not a pattern to copy - see theme.js for why.
+require('./theme')(app, { apiConfig, fetchData, readJson, useMockData, cacheDuration, dataDir });
 
 // Norce Shopping Service — get basket by ID
 app.get('/api/basket/:basketId', async (req, res) => {

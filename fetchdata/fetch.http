@@ -116,6 +116,20 @@ applicationId: {{application_id}}
 
 >>! ../mockdata/cultures.json
 
+### Get theme product (demo-only: hidden product carrying the storefront theme, see bff/theme.js)
+# statusSeed 4,5: the theme product is Hidden and has no price, and a SKU
+# without a price is only returned when the seed contains 5.
+# A PartNo that does not exist gives 200 with an empty body, not an error.
+# This overwrites mockdata/theme.json - with that empty body if the tenant has
+# no theme product. Mock mode reads an empty file as "no theme", so the
+# storefront then shows its default style.
+GET {{api_base}}{{product_service}}/GetProductByPartNo?format=json&partNo=npv-theme-{{application_id}}&statusSeed=4,5
+Content-Type: application/json
+Authorization: Bearer {{token}}
+applicationId: {{application_id}}
+
+>>! ../mockdata/theme.json
+
 ### Create basket (with NCO payment method)
 POST {{api_base}}{{shopping_service}}/CreateBasket?format=json&ipAddress=127.0.0.1&createdBy=1&cultureCode={{culture}}
 Content-Type: application/json

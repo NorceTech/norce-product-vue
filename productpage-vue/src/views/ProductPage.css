@@ -71,8 +71,10 @@
     width: 100%;
     height: 100%;
     min-height: 240px;
+    /* Same look as the product card's placeholder. */
+    background-color: #EFF3FA;
     background-image: url('@/assets/product-placeholder.svg');
-    background-size: contain;
+    background-size: auto 45%;
     background-repeat: no-repeat;
     background-position: center;
 }
