@@ -93,6 +93,8 @@ export default {
   deleteBasketItem(basketId: string | number, lineNo: string | number, params?: any) {
     return apiClient.delete(`/basket/${basketId}/items/${lineNo}`, { params });
   },
+  // Demo-only, not a lesson endpoint and not a pattern for a storefront API -
+  // see composables/useTheme.ts and bff/theme.js.
   getTheme() {
     return apiClient.get('/theme');
   },
