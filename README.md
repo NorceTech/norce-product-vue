@@ -1,6 +1,6 @@
-# Norce Academy – Developer Fundamentals: Storefront
+# Norce Academy – Storefront Development
 
-A Vue 3 webshop storefront built on **Norce Commerce**, used as a training demo in the Norce Academy "Developer Fundamentals Storefront" course.
+A Vue 3 webshop storefront built on **Norce Commerce**, used as a training demo in the Norce Academy "Storefront Development" course.
 
 The project demonstrates how to build a product browsing experience on top of the Norce Commerce Product and Metadata APIs using a Node.js BFF (Backend-for-Frontend) pattern.
 
@@ -43,7 +43,46 @@ This storefront covers the core topics of the course:
 - Node.js (v18+)
 - npm
 
-### Option A: Using `run.ps1` (Windows PowerShell)
+### Option A: Manual start (any OS)
+
+To run on the fixtures, copy the example configuration, which sets `MOCK_DATA=true`:
+
+```bash
+cp bff/.env.example bff/.env
+```
+
+**Terminal 1 — BFF:**
+```bash
+cd bff
+npm install
+npm run dev
+```
+
+`npm run dev` runs the BFF under `node --watch`, so editing `index.js` reloads
+it — no manual restart. (`npm start` runs it without watching.)
+
+The frontend needs no restart at all: Vite hot-reloads components, styles and
+translations. Two things it does not pick up, because they are only read at
+startup — `productpage-vue/.env` and `bff/.env`.
+
+**Terminal 2 — Frontend:**
+```bash
+cd productpage-vue
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+TypeScript is checked with `vue-tsc`, not just transpiled away. `npm run build`
+runs the check first; to check without building:
+
+```bash
+cd productpage-vue
+npm run typecheck
+```
+
+### Option B: Using `run.ps1` (Windows PowerShell)
 
 ```powershell
 .\run.ps1
@@ -81,39 +120,6 @@ from. It cannot be combined with `-a`, `-s` or `-e`.
 
 ```powershell
 .\run.ps1 -Mock
-```
-
-### Option B: Manual Start
-
-**Terminal 1 — BFF:**
-```bash
-cd bff
-npm install
-npm run dev
-```
-
-`npm run dev` runs the BFF under `node --watch`, so editing `index.js` reloads
-it — no manual restart. (`npm start` runs it without watching.)
-
-The frontend needs no restart at all: Vite hot-reloads components, styles and
-translations. Two things it does not pick up, because they are only read at
-startup — `productpage-vue/.env` and `bff/.env`.
-
-**Terminal 2 — Frontend:**
-```bash
-cd productpage-vue
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173`.
-
-TypeScript is checked with `vue-tsc`, not just transpiled away. `npm run build`
-runs the check first; to check without building:
-
-```bash
-cd productpage-vue
-npm run typecheck
 ```
 
 
@@ -249,10 +255,10 @@ One branch per course:
 
 - **`storefront`** — products, filtering, product detail, multi-language and the
   basket, with no checkout code (this branch). Used in
-  *Developer Fundamentals: Storefront*.
+  *Storefront Development*.
 - **`main`** — the full demo, adding checkout: NCO (Norce Checkout Order) and
-  non-PSP payment. Used in *Developer Fundamentals: Checkout*, and the default
-  branch.
+  non-PSP payment. This is the branch for the upcoming Checkout course and the
+  default branch.
 
 The basket sits on `storefront` because the Storefront course ends there —
 *Basket and Customers* is its last module. The checkout branch picks up from
@@ -269,8 +275,8 @@ git checkout storefront
 
 ## Maintenance
 
-Maintained by the Norce Academy team as the follow-along code for Developer
-Fundamentals. The course lessons link to specific branches and tags, so changes
+Maintained by the Norce Academy team as follow-along code for the Norce Academy
+developer courses. The course lessons link to specific branches and tags, so changes
 that move code between branches are coordinated with the lesson content rather
 than made in passing.
 

@@ -10,8 +10,8 @@ Technical reference for AI agents working on this codebase.
 
 ## Branches
 
-- **`storefront`** — the whole Storefront course, basket included, with no checkout code (*Developer Fundamentals: Storefront*).
-- **`main`** — that same base plus checkout: NCO and non-PSP payment (*Developer Fundamentals: Checkout*). Default branch.
+- **`storefront`** — the whole Storefront course, basket included, with no checkout code (*Storefront Development*).
+- **`main`** — that same base plus checkout: NCO and non-PSP payment (the upcoming Checkout course). Default branch.
 
 **The basket belongs to `storefront`, not to checkout.** `basket-and-customers` is module 6 of the
 Storefront course, so a participant who finishes that module and checks `storefront` out has to find
