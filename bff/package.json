@@ -1,7 +1,7 @@
 {
   "name": "bff",
   "version": "1.0.0",
-  "description": "BFF for the Norce Academy Developer Fundamentals storefront",
+  "description": "BFF for the Norce Academy Storefront Development course",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
