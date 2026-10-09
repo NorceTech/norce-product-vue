@@ -1,6 +1,6 @@
-# Norce Academy – Developer Fundamentals: Checkout
+# Norce Academy – Checkout
 
-A Vue 3 webshop storefront with checkout flow, built on **Norce Commerce**. Used as a training demo in the Norce Academy "Developer Fundamentals Checkout" course.
+A Vue 3 webshop storefront with checkout flow, built on **Norce Commerce**. Used as a training demo for the upcoming Norce Academy Checkout course.
 
 This project extends the storefront (product listing, filtering, product detail) with a **basket**, **Norce Checkout Order (NCO)**, and **non-PSP payment** flow.
 
@@ -44,7 +44,48 @@ This checkout demo builds on the storefront and adds:
 - Node.js (v18+)
 - npm
 
-### Option A: Using `run.ps1` (Windows PowerShell)
+### Option A: Manual start (any OS)
+
+To run on the fixtures, copy the example configuration, which sets `MOCK_DATA=true`:
+
+```bash
+cp bff/.env.example bff/.env
+```
+
+**Terminal 1 — BFF:**
+```bash
+cd bff
+npm install
+npm run dev
+```
+
+`npm run dev` runs the BFF under `node --watch`, so editing `index.js` or
+`mockBasket.js` reloads it — no manual restart. (`npm start` runs it without
+watching.) A reload resets the in-memory mock basket, so a cart you built up in
+mock mode empties when you edit the backend.
+
+The frontend needs no restart at all: Vite hot-reloads components, styles and
+translations. Two things it does not pick up, because they are only read at
+startup — `productpage-vue/.env` and `bff/.env`.
+
+**Terminal 2 — Frontend:**
+```bash
+cd productpage-vue
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`.
+
+TypeScript is checked with `vue-tsc`, not just transpiled away. `npm run build`
+runs the check first; to check without building:
+
+```bash
+cd productpage-vue
+npm run typecheck
+```
+
+### Option B: Using `run.ps1` (Windows PowerShell)
 
 ```powershell
 .\run.ps1
@@ -89,41 +130,6 @@ from. It cannot be combined with `-a`, `-s` or `-e`.
 
 ```powershell
 .\run.ps1 -Mock
-```
-
-### Option B: Manual Start
-
-**Terminal 1 — BFF:**
-```bash
-cd bff
-npm install
-npm run dev
-```
-
-`npm run dev` runs the BFF under `node --watch`, so editing `index.js` or
-`mockBasket.js` reloads it — no manual restart. (`npm start` runs it without
-watching.) A reload resets the in-memory mock basket, so a cart you built up in
-mock mode empties when you edit the backend.
-
-The frontend needs no restart at all: Vite hot-reloads components, styles and
-translations. Two things it does not pick up, because they are only read at
-startup — `productpage-vue/.env` and `bff/.env`.
-
-**Terminal 2 — Frontend:**
-```bash
-cd productpage-vue
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173`.
-
-TypeScript is checked with `vue-tsc`, not just transpiled away. `npm run build`
-runs the check first; to check without building:
-
-```bash
-cd productpage-vue
-npm run typecheck
 ```
 
 
@@ -332,10 +338,10 @@ the course. How the product is set up is described at the top of
 One branch per course:
 
 - **`main`** — the full demo: products, filtering, product detail, basket, NCO
-  and non-PSP payment. Used in *Developer Fundamentals: Checkout*. This is the
+  and non-PSP payment. Used in the upcoming Checkout course. This is the
   default branch, so a plain clone gives you the checkout demo.
 - **`storefront`** — products, filtering, product detail, multi-language and the
-  basket, with no checkout code. Used in *Developer Fundamentals: Storefront*.
+  basket, with no checkout code. Used in *Storefront Development*.
 
 The basket sits on `storefront` because the Storefront course ends there —
 *Basket and Customers* is its last module. This branch picks up from that point.
@@ -351,8 +357,8 @@ git checkout storefront
 
 ## Maintenance
 
-Maintained by the Norce Academy team as the follow-along code for Developer
-Fundamentals. The course lessons link to specific branches and tags, so changes
+Maintained by the Norce Academy team as follow-along code for the Norce Academy
+developer courses. The course lessons link to specific branches and tags, so changes
 that move code between branches are coordinated with the lesson content rather
 than made in passing.
 
