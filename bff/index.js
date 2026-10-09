@@ -349,8 +349,8 @@ app.get('/api/product/:uniqueName', async (req, res) => {
         const queryParams = new URLSearchParams({
         format: 'json',
         uniqueName: uniqueName,
-        statusSeed: '1,3',
-        ...(culture && { cultureCode: culture }), 
+        statusSeed: '1,3',                          // Active (1) + Expiring (3)
+        ...(culture && { cultureCode: culture }),    // Norce uses cultureCode for localized responses
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/GetProductByUniqueName?${queryParams}`;
