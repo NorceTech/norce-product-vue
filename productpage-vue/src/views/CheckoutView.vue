@@ -28,12 +28,13 @@
             <div class="checkout-item-meta">{{ item.PartNo }}</div>
           </div>
           <div class="checkout-item-qty">x{{ item.Quantity }}</div>
-          <div class="checkout-item-price">{{ formatCurrency(resolveUnitPrice(item, false)) }}</div>
+          <!-- Inc VAT, like the cart drawer; ex VAT only as a subtotal below. -->
+          <div class="checkout-item-price">{{ formatCurrency(resolveUnitPrice(item, true)) }}</div>
         </div>
         <div class="checkout-totals">
           <div v-for="fee in feeItems" :key="fee.LineNo ?? fee.Id">
             <span>{{ fee.Name }}</span>
-            <strong>{{ formatCurrency(resolveUnitPrice(fee, false) * (fee.Quantity ?? 1)) }}</strong>
+            <strong>{{ formatCurrency(resolveUnitPrice(fee, true) *(fee.Quantity ?? 1)) }}</strong>
           </div>
           <div>
             <span>{{ $t('checkout.subtotal') }}</span>
