@@ -1,28 +1,51 @@
 <#
-   Run:  .\run.ps1 [-SkipInstall] [-Mock] [-a <id>] [-c <id>] [-s <slug>] [-e <environment>]
+.SYNOPSIS
+    Starts the BFF and the storefront, against a Norce tenant or the mock data.
 
-   - Installs npm packages in bff/ and productpage-vue/ when node_modules is missing
-   - Warns when bff\.env is missing
-   - Starts the BFF (http://localhost:3000) and the frontend (http://localhost:5173)
+.DESCRIPTION
+    - Installs npm packages in bff/ and productpage-vue/ when node_modules is missing
+    - Warns when bff\.env is missing
+    - Starts the BFF (http://localhost:3000) and the frontend (http://localhost:5173)
 
-   Examples:
-     .\run.ps1                              # whatever bff\.env says
-     .\run.ps1 -Mock                        # the /mockdata fixtures, whatever bff\.env says
-     .\run.ps1 -a 1042 -c 5                 # Norce Open Demo on playground
-     .\run.ps1 -a <your-app> -c <your-root-category>
-     .\run.ps1 -a 1234 -c 7 -e stage        # same slug, stage instead
-     .\run.ps1 -a 1234 -c 7 -s acme -e prod # a single-tenant customer
+    The arguments are set as environment variables before the processes start.
+    Neither dotenv nor Vite's loadEnv overrides a variable that is already in the
+    environment, so what is passed here wins over the .env files without touching
+    them.
 
-   The arguments are set as environment variables before the processes start.
-   Neither dotenv nor Vite's loadEnv overrides a variable that is already in the
-   environment, so what is passed here wins over the .env files without touching
-   them.
+    Passing an application or a host also selects live mode, because asking for a
+    specific tenant and being served the fixtures is never what was meant.
 
-   Passing an application or a host also selects live mode, because asking for a
-   specific tenant and being served the fixtures is never what was meant.
+    Show this help with .\run.ps1 -h, or Get-Help .\run.ps1 -Full.
+
+.EXAMPLE
+    .\run.ps1
+    Whatever bff\.env says.
+
+.EXAMPLE
+    .\run.ps1 -Mock
+    The /mockdata fixtures, whatever bff\.env says.
+
+.EXAMPLE
+    .\run.ps1 -a 1042 -c 5
+    Norce Open Demo on playground.
+
+.EXAMPLE
+    .\run.ps1 -a 1234 -c 7 -e stage
+    Same slug, stage instead.
+
+.EXAMPLE
+    .\run.ps1 -a 1234 -c 7 -s acme -e prod
+    A single-tenant customer.
+
+.EXAMPLE
+    .\run.ps1 1234 7 acme prod
+    The same without the switch names. The order is fixed - application,
+    category, slug, environment - and nothing can be skipped: in
+    .\run.ps1 1234 7 prod, "prod" is taken as the slug.
 #>
 
 param(
+    # Skip npm ci / npm install, even when node_modules is missing.
     [switch]$SkipInstall,
 
     # Serve the /mockdata fixtures whatever bff\.env says. Cannot be combined
@@ -50,8 +73,17 @@ param(
     # host name, which is why this is a set rather than free text.
     [Alias('e')]
     [ValidateSet('playground', 'stage', 'prod')]
-    [string]$Environment
+    [string]$Environment,
+
+    # Show this help and exit. -? does the same without the parameter list.
+    [Alias('h')]
+    [switch]$Help
 )
+
+if ($Help) {
+    Get-Help $PSCommandPath -Detailed
+    return
+}
 
 $ErrorActionPreference = "Stop"
 
