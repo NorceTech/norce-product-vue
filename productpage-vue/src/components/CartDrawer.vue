@@ -25,8 +25,10 @@
                 :disabled="isLoading"
                 @change="onQuantityChange(item, $event)"
               />
+              <!-- Inc VAT, like the product list and product page. The ex VAT
+                   amount is only shown as a subtotal below. -->
               <div class="cart-item-price">
-                {{ formatCurrency(resolveUnitPrice(item, false)) }}
+                {{ formatCurrency(resolveUnitPrice(item, true)) }}
               </div>
               <button class="cart-remove" :disabled="isLoading" @click="removeItem(item)">
                 {{ $t('cart.remove') }}
@@ -43,7 +45,7 @@
           <div class="cart-summary">
             <div v-for="fee in feeItems" :key="fee.LineNo ?? fee.Id" class="cart-summary-row">
               <span>{{ fee.Name }}</span>
-              <strong>{{ formatCurrency(resolveUnitPrice(fee, false) * (fee.Quantity ?? 1)) }}</strong>
+              <strong>{{ formatCurrency(resolveUnitPrice(fee, true) *(fee.Quantity ?? 1)) }}</strong>
             </div>
             <div class="cart-summary-row">
               <span>{{ $t('cart.subtotal') }}</span>
