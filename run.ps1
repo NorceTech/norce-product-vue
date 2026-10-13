@@ -85,6 +85,12 @@ if ($Help) {
     return
 }
 
+# No arguments is a real run, not a request for help - it is how a fresh clone
+# starts on the fixtures - so only point at the options.
+if ($PSBoundParameters.Count -eq 0) {
+    Write-Host "Tip: .\run.ps1 -h lists the options." -ForegroundColor DarkGray
+}
+
 $ErrorActionPreference = "Stop"
 
 # Everything this script sets has to reach the BFF and Vite, which inherit the
