@@ -34,6 +34,7 @@ Check the relationship with `git merge-base --is-ancestor storefront main`, whic
 |---|---|---|
 | `GET /api/products?culture=xx` | `ListProducts2` | `productlist.json` |
 | `GET /api/productfilters?culture=xx` | `ListProductFilters2` | `productfilters.json` |
+| `GET /api/productpage/:uniqueName?culture=xx` | `GetProductByUniqueName`, `ListPromotionsByProductUniqueName`, `ListFlags` in parallel, then `ListProductRelations` | the four below |
 | `GET /api/product/:uniqueName?culture=xx` | `GetProductByUniqueName` | `product.json` |
 | `GET /api/relations/:productId?culture=xx` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName?culture=xx` | `ListPromotionsByProductUniqueName` | `promos.json` |
@@ -44,6 +45,18 @@ Check the relationship with `git merge-base --is-ancestor storefront main`, whic
 | `POST /api/basket/:basketId/items` | `InsertBasketItem` | in-memory |
 | `PUT /api/basket/:basketId/items/:itemId` | `UpdateBasketItem` | in-memory |
 | `DELETE /api/basket/:basketId/items/:lineNo` | `DeleteBasketItem` | in-memory |
+
+The product page makes one call, `/api/productpage`. The BFF composes it from `getProduct`,
+`getPromos` and `getFlags` in parallel, then `getRelations` on the product's `Id` — one function per
+Norce call, each with its own mock branch, so mock and live run the same orchestration. Keep the
+composition in the BFF: a product page that sequences Norce calls from the browser is the pattern
+the Storefront Architecture module warns against. Promotions, flags and relations degrade to `[]`
+and are named in `errors`; only the product can fail the request. `GetProductByUniqueName` answers
+an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` itself.
+
+The four single-call routes below it are no longer used by the frontend. They stay because lessons
+name them (the endpoint table in *Fetching Product Data*, the `/api/product/any-name` exercise in
+*Storefront Architecture*), and are removed together with that lesson change, not before.
 
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
