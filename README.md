@@ -9,9 +9,9 @@ The project demonstrates how to build a product browsing experience on top of th
 
 This storefront covers the core topics of the course:
 
-- **BFF pattern** — a lightweight Express server that proxies Norce Commerce API calls, handles OAuth2 authentication, and caches responses.
-- **Product listing** — fetching products with `ListProducts2`, applying filters with `ListProductFilters2`, and displaying flags with `ListFlags`.
-- **Product detail page** — loading a single product with `GetProductByUniqueName`, showing variant selection, image galleries, spec grids, and related products via `ListProductRelations`.
+- **BFF pattern** — a lightweight Express server that holds the credentials, makes the Norce Commerce calls a page needs — in parallel where they do not depend on each other — and caches the answers. What it leaves out on purpose is listed under [What the sample simplifies](#what-the-sample-simplifies).
+- **Product listing** — fetching products with `ListProducts2` and applying filters with `ListProductFilters2`.
+- **Product detail page** — one BFF call. Behind it `GetProductByUniqueName`, `ListPromotionsByProductUniqueName` and `ListFlags` run in parallel, and `ListProductRelations` follows on the product's `Id`. On the page: variant selection, image galleries, spec grids, flags, promotions and related products.
 - **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call.
 - **Mock data mode** — with `MOCK_DATA=true` the BFF serves local JSON files from `/mockdata`, so the demo runs without API access. `run.ps1` sets it for you when there is no `bff/.env` yet.
 
@@ -224,15 +224,47 @@ else looks fine.
 |---|---|---|
 | `GET /api/products` | `ListProducts2` | `productlist.json` |
 | `GET /api/productfilters` | `ListProductFilters2` | `productfilters.json` |
+| `GET /api/productpage/:uniqueName` | `GetProductByUniqueName`, `ListPromotionsByProductUniqueName` and `ListFlags` in parallel, then `ListProductRelations` | the four below |
 | `GET /api/product/:uniqueName` | `GetProductByUniqueName` | `product.json` |
 | `GET /api/relations/:productId` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags` | `ListFlags` | `flags.json` |
 | `GET /api/application` | `GetApplication` (Metadata) | `cultures.json` |
 
+`/api/productpage` is what the product page calls. It returns
+`{ product, promotions, relations, flags, errors }`: only the product decides
+whether there is a page, so a failed promotions, relations or flags call becomes
+an empty list and an entry in `errors` rather than a failed request. The four
+single-call routes below it make the same Norce calls one at a time; the
+frontend no longer uses them, and they stay while the lessons still point at
+them.
+
 `/api/application` returns `{ Id, Name, Url, Cultures }`. It used to be
 `/api/cultures` and threw away everything but the culture list — including
 `Name`, which is the storefront's own title and is what the header shows.
+
+
+## What the sample simplifies
+
+The BFF is kept small enough to read in one sitting, and that costs four
+shortcuts a production storefront should not take:
+
+- **No entity mapping.** Norce's objects reach the browser as they are; only
+  `GetApplication` is trimmed. A real storefront maps each answer to the subset
+  its pages use, and caches the mapped object.
+- **One cache, one retention.** Everything sits in one in-process cache for an
+  hour. A real storefront caches in groups — master data such as flags and
+  cultures for about a day, product data for about an hour, prices and stock for
+  minutes — and usually in a shared store such as Redis.
+- **One root category, no category navigation.** The catalogue is scoped to
+  `CATEGORY_SEED` from `bff/.env`. A real storefront builds its navigation from
+  the category tree.
+- **Cache keys without customer or price list.** There is no customer pricing,
+  so the keys carry only what varies here, such as the product and the
+  culture. A real storefront with customer prices puts the price list in every
+  key it caches a price under.
+
+The Storefront Architecture module explains each of these.
 
 
 ## Demo theme (not part of the lessons)
