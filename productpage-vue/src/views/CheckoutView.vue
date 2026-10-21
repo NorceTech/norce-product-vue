@@ -10,7 +10,7 @@
       <p v-if="orderId" class="checkout-order-id">
         {{ $t('checkout.orderIdLabel') }} <strong>{{ orderId }}</strong>
       </p>
-      <router-link to="/" class="btn primary checkout-submit">
+      <router-link :to="{ name: 'ProductListView' }" class="btn primary checkout-submit">
         {{ $t('checkout.backToShop') }}
       </router-link>
     </section>
@@ -416,8 +416,8 @@ onMounted(() => {
 })
 
 // The culture goes into the NCO order when it is initiated, so a language
-// switch starts the checkout over. App.vue keys RouterView on the path, not the
-// culture, so this view is kept on a switch and has to do that itself.
+// switch starts the checkout over. App.vue keys RouterView on the path without
+// its culture, so this view is kept on a switch and has to do that itself.
 watch(culture, () => {
   initCheckout()
 })
