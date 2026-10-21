@@ -13,7 +13,7 @@ This storefront covers the core topics of the course:
 - **Product listing** — fetching products with `ListProducts2`, applying filters with `ListProductFilters2`, and displaying flags with `ListFlags`.
 - **Product detail page** — loading a single product with `GetProductByUniqueName`, showing variant selection, image galleries, spec grids, and related products via `ListProductRelations`.
 - **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call.
-- **Mock data mode** — with `MOCK_DATA=true` the BFF serves local JSON files from `/mockdata`, so the demo runs without API access. `run.ps1` sets it for you when there is no `bff/.env` yet.
+- **Mock data mode** — with `MOCK_DATA=true` the BFF serves local JSON files from `/mockdata`, so the demo runs without API access. `npm run dev` in the root and `run.ps1` set it for you when there is no `bff/.env` yet.
 
 
 ## Project Structure
@@ -32,6 +32,8 @@ This storefront covers the core topics of the course:
 │       ├── types/          # TypeScript interfaces
 │       └── locales/        # en.json, sv.json
 ├── mockdata/               # JSON fixtures for mock mode
+├── package.json            # npm install / npm run dev for both packages
+├── scripts/                # What those two run: dev.js, check-node.js
 ├── run.ps1                 # PowerShell script to start everything
 └── fetchdata/              # HTTP files for refreshing mock data
 ```
@@ -40,23 +42,51 @@ This storefront covers the core topics of the course:
 ## Quick Start
 
 ### Prerequisites
-- Node.js (v18+)
-- npm
 
-### Option A: Manual start (any OS)
+- **Node.js 22 or later**, which comes with npm. Check with `node --version`.
+  If the command is not found, or the version is lower, install the LTS version
+  from [nodejs.org](https://nodejs.org) and open a new terminal. `npm install`
+  stops and says so when the version is too old.
+- **Git**.
 
-To run on the fixtures, copy the example configuration, which sets `MOCK_DATA=true`:
+No Norce credentials are needed to start: without a `bff/.env`, the storefront
+runs on the fixtures in `mockdata/`.
+
+### Start
+
+The same commands in PowerShell, cmd, bash or zsh:
 
 ```bash
-cp bff/.env.example bff/.env
+git clone https://github.com/NorceTech/norce-product-vue.git
+cd norce-product-vue
+git checkout storefront
+npm install
+npm run dev
 ```
+
+Open `http://localhost:5173`. `Ctrl+C` stops it.
+
+The repository holds two npm packages, `bff/` and `productpage-vue/`, and the
+`package.json` in the root only drives them: `npm install` there installs both,
+and `npm run dev` starts both in one terminal — the BFF on port 3000, the
+frontend on 5173. With no `bff/.env` yet, it sets `MOCK_DATA=true` for that run
+and says so. Once `bff/.env` exists, that file decides; see
+[Configuration](#configuration).
+
+### One terminal per package
+
+`npm run dev` in the root does what these two terminals do, after `npm install`
+in the root:
 
 **Terminal 1 — BFF:**
 ```bash
 cd bff
-npm install
 npm run dev
 ```
+
+Started like this, the BFF does not pick the fixtures for you: without
+`bff/.env` it says what is missing and stops. Create the file first, as under
+[Configuration](#configuration); the example ships with `MOCK_DATA=true`.
 
 `npm run dev` runs the BFF under `node --watch`, so editing `index.js` reloads
 it — no manual restart. (`npm start` runs it without watching.)
@@ -68,11 +98,8 @@ startup — `productpage-vue/.env` and `bff/.env`.
 **Terminal 2 — Frontend:**
 ```bash
 cd productpage-vue
-npm install
 npm run dev
 ```
-
-Open `http://localhost:5173`.
 
 TypeScript is checked with `vue-tsc`, not just transpiled away. `npm run build`
 runs the check first; to check without building:
@@ -82,7 +109,7 @@ cd productpage-vue
 npm run typecheck
 ```
 
-### Option B: Using `run.ps1` (Windows PowerShell)
+### `run.ps1` (Windows PowerShell)
 
 ```powershell
 .\run.ps1
@@ -144,6 +171,13 @@ cp bff/.env.example bff/.env
 cp productpage-vue/.env.example productpage-vue/.env
 ```
 
+That is bash and PowerShell. cmd has no `cp`, and wants backslashes:
+
+```bat
+copy bff\.env.example bff\.env
+copy productpage-vue\.env.example productpage-vue\.env
+```
+
 Both `.env` files are gitignored.
 
 ### BFF (`bff/.env`)
@@ -167,8 +201,9 @@ and they are easy to confuse:
 
 - `bff/.env.example` ships with `MOCK_DATA=true`, so copying it gives you the
   fixtures until you change that line.
-- With no `bff/.env` at all, `run.ps1` sets `MOCK_DATA=true` for that run and
-  says so, which is what keeps a fresh clone working.
+- With no `bff/.env` at all, `npm run dev` in the root and `run.ps1` set
+  `MOCK_DATA=true` for that run and say so, which is what keeps a fresh clone
+  working. `npm run dev` in `bff/` does not.
 - `run.ps1 -Mock` sets it to `true` for that run, whatever `bff/.env` says.
 - Naming a tenant or a host (`-a`, `-s`, `-e`) sets it to `false` instead.
 
