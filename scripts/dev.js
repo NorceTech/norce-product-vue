@@ -45,32 +45,50 @@ const apps = [
     { dir: 'productpage-vue', args: ['--', '--clearScreen', 'false'] },
 ];
 
+// On Unix each server gets a process group of its own, so that stopping it
+// reaches everything npm started under it - the shell, and Vite or the
+// node --watch parent and its child - not only npm. Windows has no process
+// groups to signal; taskkill /T does the same there.
+const unix = process.platform !== 'win32';
+
 const children = apps.map((app) =>
     spawn(process.execPath, [npm, 'run', 'dev', ...app.args], {
         cwd: path.join(root, app.dir),
-        stdio: 'inherit',
+        detached: unix,
+        // Outside the terminal's foreground group a server must not read from
+        // the terminal, so on Unix it gets a pipe instead. The pipe closes if
+        // this launcher dies, and Vite shuts down when its stdin ends.
+        stdio: unix ? ['pipe', 'inherit', 'inherit'] : 'inherit',
     })
 );
 
-// Ctrl+C reaches both on its own. If one stops by itself, stop the other too,
-// so that the error stays on screen instead of half a storefront running on.
+// Stop both, once, on whichever comes first: one server stopping by itself,
+// so that its error stays on screen instead of half a storefront running on;
+// or Ctrl+C, or a signal sent to this launcher alone. In process groups of
+// their own the servers no longer get the terminal's Ctrl+C, so it is passed
+// on from here.
 let stopping = false;
-for (const child of children) {
-    child.on('exit', (code) => {
-        if (stopping) return;
-        stopping = true;
-        for (const other of children) {
-            if (other !== child && other.exitCode === null) stop(other);
-        }
-        process.exitCode = code === null ? 1 : code;
-    });
+function stopAll(exitCode) {
+    if (stopping) return;
+    stopping = true;
+    process.exitCode = exitCode;
+    for (const child of children) stop(child);
 }
 
+for (const child of children) {
+    child.on('exit', (code) => stopAll(code === null ? 1 : code));
+}
+// Stopping on request is not a failure.
+process.on('SIGINT', () => stopAll(0));
+process.on('SIGTERM', () => stopAll(0));
+
 function stop(child) {
-    if (process.platform === 'win32') {
+    if (unix) {
+        // A negative pid signals the whole group. It throws if the group is
+        // already gone.
+        try { process.kill(-child.pid, 'SIGTERM'); } catch { }
+    } else if (child.exitCode === null) {
         // child.kill() would end npm and leave its node process holding the port.
         try { execSync(`taskkill /T /F /PID ${child.pid}`, { stdio: 'ignore' }); } catch { }
-    } else {
-        child.kill('SIGTERM');
     }
 }
