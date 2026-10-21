@@ -95,6 +95,7 @@ call fall through to another tenant's fixtures.
 - **Price fields differ per service** — Product Service returns `Price` (ex VAT) and `PriceIncVat`. Shopping Service basket rows return `Price: 0`; the charged price is `PriceDisplay` / `PriceDisplayIncVat`, and `PriceOriginal` is the pre-promotion price.
 - **Basket rows are not all products** — `Type: 1` is a product row; other types are fee rows (freight) that Norce maintains. Use `productItems` / `feeItems` from `useBasket`, never raw `basket.Items`, for editable UI.
 - **Types are enforced** — `npm run typecheck` (`vue-tsc --noEmit`) must pass; `npm run build` runs it first.
+- **Costs never reach the browser** — products and baskets pass through unmapped, except the merchant's costs: `withoutCosts()` drops `CostPurchase` and `CostUnit` from a product and each of its variants, `basketWithoutCosts()` drops `Cost` and `CostUnit` from basket rows. A new route that returns a product or a basket goes through them.
 - **CSS** — plain CSS in separate `.css` files imported by components, plus a global `style.css`.
 - **TypeScript types** — interfaces live in `src/types/`. Basket types are in `Basket.ts`.
 - **Norce filter format** — `key1|val1,val2;key2|val3`. `parf` is the exception: its values join with `*` (AND between parametrics, OR within one), and its tokens are `L<pid>_<valueId>`, `M<pid>_<valueId>` or `V<pid>_<from>-<to>`.

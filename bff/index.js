@@ -351,9 +351,23 @@ function buildContextParams(source) {
 // mock mode each returns its fixture - the same captured answer whatever the
 // name or id - which keeps that order identical in both modes.
 
+// Norce sends what a product costs the merchant along with what it sells for:
+// CostPurchase and CostUnit, "included for margin calculations". The product
+// otherwise reaches the browser as Norce sent it (see "What the sample
+// simplifies" in the README), but passing these through would put the purchase
+// cost in every visitor's browser. So the BFF takes them out: from the product,
+// and from each of its variants, which carry their own.
+function withoutCosts(product) {
+    if (!product) return product;
+
+    const { CostPurchase, CostUnit, ...rest } = product;
+    if (Array.isArray(rest.Variants)) rest.Variants = rest.Variants.map(withoutCosts);
+    return rest;
+}
+
 // Norce Product Service — a single product by its unique name (slug)
 async function getProduct(uniqueName, culture) {
-    if (useMockData) return readFixture('product.json');
+    if (useMockData) return withoutCosts(readFixture('product.json'));
 
     const queryParams = new URLSearchParams({
         format: 'json',
@@ -363,7 +377,7 @@ async function getProduct(uniqueName, culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/GetProductByUniqueName?${queryParams}`;
-    return fetchData(url, `product_${uniqueName}_${culture}`);
+    return withoutCosts(await fetchData(url, `product_${uniqueName}_${culture}`));
 }
 
 // Norce Product Service — active promotions for a product, by its unique name
@@ -637,6 +651,16 @@ app.get('/api/application', async (req, res) => {
 // what this app teaches and not a pattern to copy - see theme.js for why.
 require('./theme')(app, { apiConfig, fetchData, readJson, useMockData, cacheDuration, dataDir });
 
+// Basket rows carry the merchant's costs too, one of them under another name:
+// Cost is the purchase cost (CostPurchase on the product) and CostUnit is the
+// unit cost. They come out for the same reason as in withoutCosts above. Only
+// the live answers need it - mockBasket.js builds its rows without them.
+function basketWithoutCosts(basket) {
+    if (!Array.isArray(basket?.Items)) return basket;
+
+    return { ...basket, Items: basket.Items.map(({ Cost, CostUnit, ...item }) => item) };
+}
+
 // Norce Shopping Service — get basket by ID
 app.get('/api/basket/:basketId', async (req, res) => {
     if (useMockData) {
@@ -650,7 +674,7 @@ app.get('/api/basket/:basketId', async (req, res) => {
 
     try {
         const basketData = await fetchDataNoCache(url);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch basket' });
     }
@@ -698,7 +722,7 @@ app.post('/api/basket', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, basketBody);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to create basket' });
     }
@@ -738,7 +762,7 @@ app.post('/api/basket/:basketId/items', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, itemBody);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to insert basket item' });
     }
@@ -782,7 +806,7 @@ app.put('/api/basket/:basketId/items/:itemId', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, itemBody);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to update basket item' });
     }
@@ -801,7 +825,7 @@ app.delete('/api/basket/:basketId/items/:lineNo', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, null);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete basket item' });
     }
