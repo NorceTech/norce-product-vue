@@ -214,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { inject, ref, watch, Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useBasket } from '@/composables/useBasket'
@@ -440,9 +440,13 @@ function getErrorMessage(err: any, fallback: string) {
   return err?.message || fallback
 }
 
-onMounted(() => {
-  initCheckout()
-})
+// Wait for App.vue to settle the culture, as the other views do. Started on
+// mount, a stored culture the application does not offer went into one NCO
+// order, and App.vue's correction a moment later started a second.
+const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>
+watch(isCultureInitialized, (isInitialized) => {
+  if (isInitialized) initCheckout()
+}, { immediate: true })
 
 // The culture goes into the NCO order when it is initiated, so a language
 // switch starts the checkout over. App.vue keys RouterView on the path, not the
@@ -453,6 +457,9 @@ onMounted(() => {
 // payment on its way would swap the order it confirms - completeCheckout starts
 // over afterwards instead, if the payment failed.
 watch(culture, () => {
+  // No start yet: the first one will use the new culture anyway. This is
+  // App.vue replacing a stored culture just before it lets the first start go.
+  if (latestStart === 0) return
   if (isComplete.value) return
   if (completing) {
     switchedWhileCompleting = true
