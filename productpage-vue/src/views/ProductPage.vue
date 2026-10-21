@@ -608,6 +608,9 @@ async function fetchProductData() {
 
     const firstBuyable = p?.Variants?.find((v:any) => v.StatusId === 1 && v.IsBuyable && (v.Price ?? 0) > 0) ?? null;
     selectedVariant.value = firstBuyable;
+    // Clear the chips too, or they would still show the previous selection
+    // after a language switch reloads the product.
+    selectedFacet.value = {};
 
   } catch (error: any) {
     errors.push({ context: 'Product', message: error.message });

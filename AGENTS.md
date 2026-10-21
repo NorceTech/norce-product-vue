@@ -83,6 +83,7 @@ choosing those is checkout's job.
 - **Media CDN** — image and file `Key`s need a client-specific host (`VITE_MEDIA_CDN_HOST`), which `run.ps1 -e` moves with the API host. `Path` is only populated for external links like YouTube, so never rely on it for images.
 - **A 5xx from the BFF does not mean the BFF is down** — it answered; an upstream Norce call failed. Only a missing response means unreachable.
 - **`ProductCard.vue`** — reuse this component for any product grid. Extend with props rather than duplicating.
+- **`RouterView` is keyed on the route path, not the culture** — another product is another page, so it is built from scratch; keyed on culture alone, a related-product link changed the URL and nothing else. A language switch keeps the view, so every view that shows culture-specific data watches the culture itself. A new view must do the same, or it keeps the old language.
 - **Translations** — all user-facing strings use `vue-i18n` keys in `src/locales/en.json` and `sv.json`.
 
 ## Updating Mock Data
