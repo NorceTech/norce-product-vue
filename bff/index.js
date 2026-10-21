@@ -33,6 +33,12 @@ app.use(cors());
 app.use(express.json());
 const port = process.env.PORT || 3000;
 const cacheDuration = 3600 * 1000; // 1 hour
+// How long one Norce read through fetchData may take. The product page waits
+// for two rounds of reads - product, promotions and flags, then relations - and
+// the browser gives up after 15 s (see api.ts). Without a limit, one hanging
+// extra kept the whole page waiting past that; with it, the call fails in time
+// and /api/productpage leaves that extra out.
+const readTimeout = 5000;
 
 const apiConfig = {
     api_base: process.env.API_BASE,
@@ -189,6 +195,7 @@ async function fetchData(url, cacheKey) {
         const token = await getAuthToken();        console.log(`[NORCE REQUEST] URL: ${url}`);
 
         const response = await axios.get(url, {
+            timeout: readTimeout,
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'applicationId': apiConfig.application_id
