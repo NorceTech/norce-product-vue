@@ -36,13 +36,23 @@ const i18n = createI18n({
   globalInjection: true, // Make $t available globally
 });
 
-// Watch for changes in the global culture ref and update the API service and i18n locale
+// Watch for changes in the global culture ref and update the API service and i18n locale.
+// Synchronously, as the router sets the culture: the first one is set right
+// before the app mounts, and the first render and the first API calls have to
+// be in that language already.
 watch(culture, (newCulture) => {
   setCulture(newCulture);
   i18n.global.locale.value = newCulture; // Update i18n locale
-});
+}, { flush: 'sync' });
 
 // Initialize the API service with the current culture
 setCulture(culture.value);
 
-app.use(router).use(i18n).mount('#app')
+// Mounted only once the first navigation is done, because that is what sets the
+// culture: before it, nothing knows which language the page is in. An address
+// without a culture waits here for GetApplication too - see router/index.js.
+// Mounted even when that navigation failed, which Vue Router has already
+// logged: with the BFF down, the header's warning banner is the only thing that
+// can say so.
+app.use(router).use(i18n);
+router.isReady().catch(() => {}).finally(() => app.mount('#app'));
