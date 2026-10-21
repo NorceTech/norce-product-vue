@@ -21,7 +21,7 @@
 
       <div class="left-col">
           <section class="card product-info" style="min-width:260px">
-          <h1>{{ currentItem?.Name }}</h1>
+          <h1>{{ decodeEntities(currentItem?.Name) }}</h1>
           <p class="subtitle">{{ currentItem?.SubHeader }}</p>
           <p class="text-sm mb-1">{{ $t('productPage.partNumber') }} {{ currentItem?.PartNo }}</p>
 
@@ -97,7 +97,7 @@
           <div class="ratio-box">
             <iframe
                 :src="embedUrl"
-                :title="currentItem?.Name ?? product?.Name ?? ''"
+                :title="decodeEntities(currentItem?.Name ?? product?.Name)"
                 frameborder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowfullscreen>
@@ -250,7 +250,7 @@ import { ref, computed, nextTick, onUnmounted, provide, watch, inject, Ref } fro
 import PromoStrip from '@/components/PromoStrip.vue'
 import ProductCard from '@/components/ProductCard.vue'
 
-import {cdnImg, getAlt, parseNorcedate, showFlag, fileUrl, formatMoney} from '@/composables/useHelpers'
+import {cdnImg, getAlt, parseNorcedate, showFlag, fileUrl, formatMoney, decodeEntities} from '@/composables/useHelpers'
 
 
 
