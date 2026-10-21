@@ -295,13 +295,28 @@ function fillDummyAddress() {
   }
 }
 
+// Every start of the checkout takes a number. A start that finds a newer number
+// after an await has been overtaken - a language switch started over while it
+// was still on its way - and leaves the order to the newer one.
+let latestStart = 0
+// True while completeCheckout places the order. See the culture watcher.
+let completing = false
+
 async function initCheckout() {
+  const thisStart = ++latestStart
   loading.value = true
   error.value = null
   isComplete.value = false
+  // Forget the previous order first: if starting over fails, its payment must
+  // not stay selectable on the new page.
+  orderId.value = null
+  paymentId.value = null
+  paymentMethods.value = []
+  selectedMethod.value = null
 
   try {
     await loadBasket()
+    if (thisStart !== latestStart) return
     if (!basket.value?.Id) {
       error.value = t('checkout.empty')
       return
@@ -312,10 +327,12 @@ async function initCheckout() {
       culture: culture.value,
       currency: basket.value.CurrencyCode,
     })
+    if (thisStart !== latestStart) return
     const newOrderId: string = orderResponse.data.id
     orderId.value = newOrderId
 
     const paymentResponse = await api.createNonPspPayment(newOrderId)
+    if (thisStart !== latestStart) return
     const newPaymentId: string = paymentResponse.data.paymentId
     paymentId.value = newPaymentId
     paymentMethods.value = paymentResponse.data.paymentMethods ?? []
@@ -327,9 +344,9 @@ async function initCheckout() {
       })
     }
   } catch (err: any) {
-    error.value = getErrorMessage(err, t('checkout.initError'))
+    if (thisStart === latestStart) error.value = getErrorMessage(err, t('checkout.initError'))
   } finally {
-    loading.value = false
+    if (thisStart === latestStart) loading.value = false
   }
 }
 
@@ -357,6 +374,7 @@ async function completeCheckout() {
     return
   }
   try {
+    completing = true
     loading.value = true
     await api.updateCheckoutBilling(orderId.value, billing.value)
     const shippingPayload = shippingDifferent.value ? { ...shipping.value } : { ...billing.value }
@@ -369,6 +387,7 @@ async function completeCheckout() {
   } catch (err: any) {
     completeError.value = getErrorMessage(err, t('checkout.completeError'))
   } finally {
+    completing = false
     loading.value = false
   }
 }
@@ -418,7 +437,12 @@ onMounted(() => {
 // The culture goes into the NCO order when it is initiated, so a language
 // switch starts the checkout over. App.vue keys RouterView on the path, not the
 // culture, so this view is kept on a switch and has to do that itself.
+//
+// Not once the order is placed, or while it is being placed: the confirmation
+// belongs to the order that was paid, and starting over under a payment on its
+// way would swap the order it confirms.
 watch(culture, () => {
+  if (isComplete.value || completing) return
   initCheckout()
 })
 </script>
