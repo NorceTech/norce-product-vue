@@ -13,7 +13,7 @@ This checkout demo builds on the storefront and adds:
 - **Cart drawer** — slide-out cart UI with quantity editing and item removal.
 - **NCO integration** — initiate a checkout order, update billing/shipping, and handle the payment flow via Norce Checkout Order APIs.
 - **Non-PSP payment** — a simplified payment adapter that skips external payment providers, useful for B2B or invoice-based flows.
-- **All storefront features** — product listing with `ListProducts2`, filters with `ListProductFilters2`, product detail with `GetProductByUniqueName`, variant selection, multi-language support, and mock data mode.
+- **All storefront features** — product listing with `ListProducts2`, filters with `ListProductFilters2`, product detail with `GetProductByUniqueName`, variant selection, multi-language support with the culture in the address (`/sv-SE/product/…`), and mock data mode.
 
 
 ## Project Structure
@@ -307,9 +307,11 @@ product's default name, so a language switch on the product page cannot ask for
 the same name again. It asks for the new name by `Id`, which is the same in
 every culture, and moves there. Page loads still go by unique name.
 
-`/api/application` returns `{ Id, Name, Url, ClientId, ClientName, Cultures }`. It used to be
-`/api/cultures` and threw away everything but the culture list — including
-`Name`, which is the storefront's own title and is what the header shows.
+`/api/application` returns `{ Id, Name, Url, ClientId, ClientName, Cultures,
+PrimaryCulture }`. It used to be `/api/cultures` and threw away everything but
+the culture list — including `Name`, which is the storefront's own title and is
+what the header shows. `PrimaryCulture` is what `GetApplication` calls
+`Cultures.Default`; an address without a culture is sent there.
 
 ### Basket endpoints
 
@@ -357,13 +359,6 @@ shortcuts a production storefront should not take:
   key it caches a price under.
 
 The Storefront Architecture module explains each of these.
-
-One more sits outside the BFF: **the culture is not in the URL.** It is kept in
-the browser, and unique names differ per culture, so a product link opened in
-another language than it was made in — shared, bookmarked, or reached with Back
-after a language switch — finds nothing. A real storefront puts the culture in
-the path, such as `/sv-SE/product/…`, and so always knows which culture a name
-belongs to.
 
 
 ## Demo theme (not part of the lessons)

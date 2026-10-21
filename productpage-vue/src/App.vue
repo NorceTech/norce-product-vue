@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, provide, onMounted, inject, watch, Ref } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { ref, computed, provide, onMounted, inject, watch, Ref } from 'vue'
+import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import api, { setBffHealthCallback } from '@/services/api'
 import LanguageSelector from '@/components/LanguageSelector.vue'
 import { useCulture } from '@/composables/useCulture'
@@ -44,10 +44,15 @@ interface Culture {
 const cultures = ref<Culture[]>([]);
 // The storefront's own name, straight from GetApplication.
 const applicationName = ref<string>('');
-const { culture: globalCulture, updateCulture } = useCulture();
+const { culture: globalCulture } = useCulture();
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
 const { itemCount, toggleDrawer, initFromStorage } = useBasket();
 const route = useRoute();
+const router = useRouter();
+
+// The address without its first segment, the culture: /sv-SE/product/x and
+// /en-GB/product/x are the same page. See the RouterView below.
+const pageKey = computed(() => route.path.replace(/^\/[^/]*/, ''));
 
 // Demo-only storefront theme - not part of the lesson, see useTheme.ts.
 // Loaded after the application (the logo needs the media client id) and again
@@ -86,11 +91,15 @@ onMounted(async () => {
         Code: c.Code ?? c.culture ?? c.code
       }));
 
-      // Validate/Init culture
+      // The address can name a culture this application does not offer - a
+      // typo, or a link from another application. Norce would not object: it
+      // answers an unknown culture with 200 and the default texts. So the
+      // storefront checks, and moves to the primary culture, the same one an
+      // address without a culture gets (see router/index.js).
       const current = globalCulture.value;
       const valid = cultures.value.find(c => c.Code === current);
-      if (!valid && cultures.value.length > 0) {
-        updateCulture(cultures.value[0].Code);
+      if (!valid && data.PrimaryCulture) {
+        await router.replace({ params: { culture: data.PrimaryCulture } });
       }
     } else {
       console.error('GetApplication returned no culture list:', data);
@@ -111,10 +120,13 @@ onMounted(async () => {
   <header>
     <div class="container header-content">
       <!-- The storefront name comes from GetApplication; the translated
-           string is only a fallback for before it has loaded. -->
-      <a href="/" class="brand">
+           string is only a fallback for before it has loaded. The link is a
+           path rather than the named route, because the header renders even
+           when there is no culture yet (see main.js), and the named route
+           cannot be built without one. Plain / then tries again. -->
+      <RouterLink :to="`/${globalCulture}`" class="brand">
         <BrandMark :name="applicationName || $t('header.brand')" />
-      </a>
+      </RouterLink>
       <div class="right-content">
         <LanguageSelector :cultures="cultures" v-if="cultures.length > 0" />
         <button class="cart-button" @click="toggleDrawer">
@@ -129,15 +141,16 @@ onMounted(async () => {
     {{ $t('bff.errorMessage') }}
   </div>
 
-  <!-- Keyed on the path: another product is another page, so Vue builds it
+  <!-- Keyed on the page: another product is another page, so Vue builds it
        from scratch - no variant, gallery or lightbox state left over from the
        last one. Vue Router reuses the component when only a param changes, and
        keyed on culture alone, clicking a related product changed the URL and
-       nothing else. Not keyed on culture: a language switch is the same page,
-       and each view says itself what it does on one (see the globalCulture
-       watchers). The product page needs that - it has to look up the
-       product's unique name in the new language before it can move there. -->
-  <RouterView :key="route.path" />
+       nothing else. The culture is left out of the key: a language switch is
+       the same page, and each view says itself what it does on one (see the
+       culture watchers in the views). The product page needs that - it has to
+       look up the product's unique name in the new language before it can
+       move there. -->
+  <RouterView :key="pageKey" />
   <CartDrawer />
 
   <div v-if="visible" class="debug-popup">

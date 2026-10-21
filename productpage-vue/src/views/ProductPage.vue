@@ -1,13 +1,13 @@
 <template>
   <main class="container" v-if="product">
     <nav class="text-sm mb-4">
-      <a href="/">{{ $t('productPage.shop') }}</a> /
+      <router-link :to="{ name: 'ProductListView' }">{{ $t('productPage.shop') }}</router-link> /
       <span v-for="(c,i) in product.Categories" :key="c.Id">
         <template v-if="i"> / </template>{{ c.Value }}
       </span>
     </nav>
 
-    <router-link to="/" class="back-to-list-link">
+    <router-link :to="{ name: 'ProductListView' }" class="back-to-list-link">
       &lt; {{ $t('productPage.backToList') }}
     </router-link>
 
@@ -275,6 +275,13 @@ const flags = ref<Flag[]>([])
 const debugPopup = inject<DebugPopup>('debugPopup');
 
 const props = defineProps({
+  // Both from the address. The culture is a prop here, not only the global
+  // ref, so that the watcher below fires only while this page stays mounted -
+  // see the comment there.
+  culture: {
+    type: String,
+    required: true,
+  },
   uniqueName: {
     type: String,
     required: true,
@@ -658,13 +665,22 @@ watch(isCultureInitialized, async (isInitialized) => {
 
 watch(selectedVariant, () => { heroIndex.value = 0; lightboxIndex.value = null })
 
-// A language switch. Unique names are per culture, so the name in the URL may
-// mean nothing in the new language - see /api/uniquename in bff/index.js. Ask
-// for this product's name in the new culture by its Id, and move there if it
+// A language switch: the language selector has put the new culture in front of
+// the old unique name. Unique names are per culture, so that name may mean
+// nothing in the new language - see /api/uniquename in bff/index.js. Ask for
+// this product's name in the new culture by its Id, and move there if it
 // differs; the RouterView key in App.vue then builds the page from scratch. The
 // same name in both cultures is the same page, so it only needs the new texts.
-watch(globalCulture, async (newCulture, oldCulture) => {
-  if (!oldCulture) return;
+//
+// The prop changes only while this page stays mounted, which is while the
+// unique name stays the same: a switch in the language selector, or Back to the
+// same name in another culture. Back to another name builds a new page instead
+// (the RouterView key in App.vue), and that page needs no lookup - its address
+// says which culture the name belongs to.
+watch(() => props.culture, async () => {
+  // App.vue has moved an address with a culture the application does not
+  // offer. The first load is still to come; see the watch above.
+  if (!isCultureInitialized.value) return;
   if (!product.value) return fetchProductData();
 
   try {
