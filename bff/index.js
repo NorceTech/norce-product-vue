@@ -298,6 +298,22 @@ async function getProduct(uniqueName, culture, timeout = 0) {
     return withoutCosts(await fetchData(url, `product_${uniqueName}_${culture}`, timeout));
 }
 
+// Norce Product Service — a single product by its internal Id. Unlike the
+// unique name, the Id is the same in every culture.
+async function getProductById(productId, culture) {
+    if (useMockData) return readFixture('product.json');
+
+    const queryParams = new URLSearchParams({
+        format: 'json',
+        id: productId,
+        statusSeed: '1,3',
+        ...(culture && { cultureCode: culture }),
+    }).toString();
+
+    const url = `${apiConfig.api_base}${apiConfig.product_service}/GetProduct?${queryParams}`;
+    return fetchData(url, `product_id_${productId}_${culture}`);
+}
+
 // Norce Product Service — active promotions for a product, by its unique name
 async function getPromos(uniqueName, culture, timeout = 0) {
     if (useMockData) return readFixture('promos.json');
@@ -390,6 +406,36 @@ app.get('/api/productpage/:uniqueName', async (req, res) => {
     const relations = await getRelations(product.Id, culture, pageCallTimeout).catch(leaveOut('Relations'));
 
     res.json({ product, promotions, relations, flags, errors });
+});
+
+// A product's unique name in one culture, looked up by its Id.
+//
+// Unique names are per culture: Norce Open Demo's softshell jacket is
+// blaklader-4949-softshell-jakke in sv-SE and blaklader-4949-softshell-jacket
+// in en-GB. GetProductByUniqueName finds a name only in its own culture, or
+// when it is the product's default name, and answers anything else with 200
+// and null. So a language switch on the product page cannot just ask for the
+// same name again: the page sends the product's Id, which does not change, and
+// moves to the name this returns.
+app.get('/api/uniquename/:productId', async (req, res) => {
+    try {
+        const product = await getProductById(req.params.productId, req.query.culture);
+        // Like GetProductByUniqueName, GetProduct answers an unknown Id with
+        // 200 and null.
+        if (!product) {
+            res.status(404).json({ error: 'Product not found' });
+            return;
+        }
+        // PIM builds the unique URL from the name, so a product with no name in
+        // this culture has no page in it either.
+        if (!product.UniqueName) {
+            res.status(404).json({ error: 'Product has no unique name in this culture' });
+            return;
+        }
+        res.json({ uniqueName: product.UniqueName });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch product data' });
+    }
 });
 
 // One route per call. The product page no longer uses these - it calls

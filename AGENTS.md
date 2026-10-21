@@ -41,6 +41,7 @@ Dependency bumps follow the same rule. `.github/dependabot.yml` sends version up
 | `GET /api/relations/:productId?culture=xx` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName?culture=xx` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags?culture=xx` | `ListFlags` | `flags.json` |
+| `GET /api/uniquename/:productId?culture=xx` | `GetProduct` | `product.json` |
 | `GET /api/application` | `GetApplication` (Metadata Service) | `cultures.json` |
 | `GET /api/basket/:basketId` | `GetBasket` (Shopping Service) | in-memory (`mockBasket.js`) |
 | `POST /api/basket` | `CreateBasket` | in-memory |
@@ -64,6 +65,13 @@ round and pass no timeout, so they keep the browser's full 15 s.
 The four single-call routes below it are no longer used by the frontend. They stay because lessons
 name them (the endpoint table in *Fetching Product Data*, the `/api/product/any-name` exercise in
 *Storefront Architecture*), and are removed together with that lesson change, not before.
+
+`/api/uniquename/:productId` is the product page's language switch. Unique names are per culture
+(Open Demo's product 13 is `blaklader-4949-softshell-jakke` in sv-SE, `…-jacket` in en-GB), and
+`GetProductByUniqueName` matches a name only in the requested culture or as the product's default
+name — see `GetIdPartNoAndUniqueUrlNameByName`. So the page sends the `Id`, which is the same in
+every culture, gets the name back from `GetProduct` and `router.replace`s to it. Page loads still go
+by unique name, as the lessons teach.
 
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
@@ -93,6 +101,7 @@ choosing those is checkout's job.
 - **A 5xx from the BFF does not mean the BFF is down** — it answered; an upstream Norce call failed. Only a missing response means unreachable.
 - **Names can carry HTML entities** — Norce returns text as it is stored, and Norce Open Demo has a product named `…13&quot;`. Show product names through `decodeEntities()` in `useHelpers`; `ProductCard` and `getAlt` already do. Vue escapes `{{ }}`, so without it the entity shows as written.
 - **`ProductCard.vue`** — reuse this component for any product grid. Extend with props rather than duplicating.
+- **`RouterView` is keyed on the route path, not the culture** — another product is another page, so it is built from scratch; keyed on culture alone, a related-product link changed the URL and nothing else. A language switch keeps the view, so every view that shows culture-specific data watches the culture itself. A new view must do the same, or it keeps the old language.
 - **Translations** — all user-facing strings use `vue-i18n` keys in `src/locales/en.json` and `sv.json`.
 
 ## Updating Mock Data
