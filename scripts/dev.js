@@ -56,17 +56,17 @@ const children = apps.map((app) =>
         cwd: path.join(root, app.dir),
         detached: unix,
         // Outside the terminal's foreground group a server must not read from
-        // the terminal, so on Unix it gets a pipe instead. The pipe closes if
-        // this launcher dies, and Vite shuts down when its stdin ends.
+        // the terminal, so on Unix it gets a pipe instead, which stays open and
+        // empty. Closing it does not stop the servers; the signals below do.
         stdio: unix ? ['pipe', 'inherit', 'inherit'] : 'inherit',
     })
 );
 
 // Stop both, once, on whichever comes first: one server stopping by itself,
 // so that its error stays on screen instead of half a storefront running on;
-// or Ctrl+C, or a signal sent to this launcher alone. In process groups of
-// their own the servers no longer get the terminal's Ctrl+C, so it is passed
-// on from here.
+// or Ctrl+C, the terminal closing, or a signal sent to this launcher alone. In
+// process groups of their own the servers get none of the terminal's signals,
+// so they are passed on from here.
 let stopping = false;
 function stopAll(exitCode) {
     if (stopping) return;
@@ -78,9 +78,12 @@ function stopAll(exitCode) {
 for (const child of children) {
     child.on('exit', (code) => stopAll(code === null ? 1 : code));
 }
-// Stopping on request is not a failure.
-process.on('SIGINT', () => stopAll(0));
-process.on('SIGTERM', () => stopAll(0));
+// Stopping on request is not a failure. SIGHUP is the terminal closing: the
+// BFF's node --watch does not stop when its stdin pipe ends, so without this
+// it would keep port 3000 after the window is gone.
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(signal, () => stopAll(0));
+}
 
 function stop(child) {
     if (unix) {
