@@ -57,10 +57,11 @@ composition in the BFF: a product page that sequences Norce calls from the brows
 the Storefront Architecture module warns against. Promotions, flags and relations degrade to `[]`
 and are named in `errors`; only the product can fail the request. `GetProductByUniqueName` answers
 an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` itself. The four
-product-page functions pass `pageCallTimeout` (4 s) to `fetchData`, which applies it to the token
-request too: a cold token and two rounds of reads stay under the browser's 15 s, so a hanging extra
-fails inside that instead of holding the product. Other reads pass no timeout, so a slow product
-list still gets the browser's full 15 s.
+functions take an optional `timeout` that goes on to `fetchData`, which applies it to the token
+request too. Only `/api/productpage` passes one, `pageCallTimeout` (4 s): a cold token and two
+rounds of reads stay under the browser's 15 s, so a hanging extra fails inside that instead of
+holding the product. The single-call routes, the product list and the metadata reads make one
+round and pass no timeout, so they keep the browser's full 15 s.
 
 The four single-call routes below it are no longer used by the frontend. They stay because lessons
 name them (the endpoint table in *Fetching Product Data*, the `/api/product/any-name` exercise in
