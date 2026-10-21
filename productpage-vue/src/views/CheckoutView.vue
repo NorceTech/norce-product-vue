@@ -299,8 +299,10 @@ function fillDummyAddress() {
 // after an await has been overtaken - a language switch started over while it
 // was still on its way - and leaves the order to the newer one.
 let latestStart = 0
-// True while completeCheckout places the order. See the culture watcher.
+// True while completeCheckout places the order, and whether the language changed
+// meanwhile. See the culture watcher.
 let completing = false
+let switchedWhileCompleting = false
 
 async function initCheckout() {
   const thisStart = ++latestStart
@@ -375,6 +377,7 @@ async function completeCheckout() {
   }
   try {
     completing = true
+    switchedWhileCompleting = false
     loading.value = true
     await api.updateCheckoutBilling(orderId.value, billing.value)
     const shippingPayload = shippingDifferent.value ? { ...shipping.value } : { ...billing.value }
@@ -389,6 +392,13 @@ async function completeCheckout() {
   } finally {
     completing = false
     loading.value = false
+  }
+
+  // The language changed while the order was being placed. A placed order
+  // keeps its confirmation; one that failed starts over in the new language,
+  // so the next attempt does not place an order in the old one.
+  if (switchedWhileCompleting && !isComplete.value) {
+    initCheckout()
   }
 }
 
@@ -438,11 +448,16 @@ onMounted(() => {
 // switch starts the checkout over. App.vue keys RouterView on the path, not the
 // culture, so this view is kept on a switch and has to do that itself.
 //
-// Not once the order is placed, or while it is being placed: the confirmation
-// belongs to the order that was paid, and starting over under a payment on its
-// way would swap the order it confirms.
+// Not once the order is placed: the confirmation belongs to the order that was
+// paid. Not while it is being placed either, since starting over under a
+// payment on its way would swap the order it confirms - completeCheckout starts
+// over afterwards instead, if the payment failed.
 watch(culture, () => {
-  if (isComplete.value || completing) return
+  if (isComplete.value) return
+  if (completing) {
+    switchedWhileCompleting = true
+    return
+  }
   initCheckout()
 })
 </script>
