@@ -626,9 +626,11 @@ function handleAddToBasket() {
   } as BasketItem)
 }
 
-
+// Resolves to false only when the product page answered 404: the name in the
+// address means nothing in this culture. See the language switch below.
 async function fetchProductData() {
   const errors: { context: string; message: string }[] = [];
+  let exists = true;
   try {
     // One call. Which Norce calls run in parallel is the BFF's business, not
     // the browser's. A failed promotions, relations or flags call does not fail
@@ -648,18 +650,20 @@ async function fetchProductData() {
     selectedFacet.value = {};
 
   } catch (error: any) {
+    exists = error.response?.status !== 404;
     errors.push({ context: 'Product', message: error.message });
   }
 
   if (errors.length > 0) {
     debugPopup?.show(errors);
   }
+  return exists;
 }
 
 // The load in progress, or null before the first. A language switch waits for
 // it, because the product's Id - the one thing that is the same in every
 // culture - comes from it.
-let pageLoad: Promise<void> | null = null;
+let pageLoad: Promise<boolean> | null = null;
 
 function loadPage() {
   pageLoad = fetchProductData();
@@ -719,19 +723,19 @@ watch(() => props.culture, async () => {
     }
   } catch (error: any) {
     if (thisSwitch !== latestSwitch) return;
-    // 404: the product has no name in this culture, and so no page in it -
-    // see /api/uniquename. The address now names nothing that exists here, and
-    // would fail when reloaded or shared. The start page in this language is
-    // the nearest address that does exist.
-    if (error.response?.status === 404) {
-      debugPopup?.show([{ context: 'Product', message: error.response.data?.error ?? error.message }]);
+    debugPopup?.show([{ context: 'Product', message: error.response?.data?.error ?? error.message }]);
+    // A 404 means the product has no name in this culture, and so no page in
+    // it - see /api/uniquename. Any other failure says nothing about the
+    // address: it may well be valid - Back to an earlier entry, or a name that
+    // is the same in both cultures - so load it as it stands. If that finds
+    // nothing either, the address names nothing that exists here and would
+    // fail when reloaded or shared; the start page in this language is the
+    // nearest address that does exist.
+    const exists = error.response?.status !== 404 && await loadPage();
+    if (!exists && thisSwitch === latestSwitch) {
       await router.replace({ name: 'ProductListView' });
-      return;
     }
-    // Any other failure says nothing about the address. It may well be valid -
-    // Back to an earlier entry, or a name that is the same in both cultures -
-    // so load it as it stands rather than leave the old language on screen.
-    debugPopup?.show([{ context: 'Product', message: error.message }]);
+    return;
   }
 
   await loadPage();
