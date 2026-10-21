@@ -414,6 +414,13 @@ function getErrorMessage(err: any, fallback: string) {
 onMounted(() => {
   initCheckout()
 })
+
+// The culture goes into the NCO order when it is initiated, so a language
+// switch starts the checkout over. App.vue keys RouterView on the path, not the
+// culture, so this view is kept on a switch and has to do that itself.
+watch(culture, () => {
+  initCheckout()
+})
 </script>
 
 <style scoped>
