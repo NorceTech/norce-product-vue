@@ -42,8 +42,6 @@ export interface Product {
     Categories: Category[];
     IsRecommendedQuantityFixed: boolean;
     PopularityRank: number;
-    CostPurchase: number;
-    CostUnit: number;
     Title: string | null;
     ActualWeight: number;
     CommodityCode: string | null;

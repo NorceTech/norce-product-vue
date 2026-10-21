@@ -71,6 +71,7 @@ choosing those is checkout's job.
 - **Price fields differ per service** — the Product Service returns `Price` (ex VAT) and `PriceIncVat`. Do not mix inc/ex VAT fields in one fallback chain.
 - **Money formatting** — use `formatMoney()` from `useHelpers`; the selected culture decides the format, never a hard-coded locale.
 - **Types are enforced** — `npm run typecheck` (`vue-tsc --noEmit`) must pass; `npm run build` runs it first.
+- **Costs never reach the browser** — products and baskets pass through unmapped, except the merchant's costs: `withoutCosts()` drops `CostPurchase` and `CostUnit` from a product and each of its variants, `basketWithoutCosts()` drops `Cost` and `CostUnit` from basket rows. A new route that returns a product or a basket goes through them.
 - **CSS** — plain CSS in separate `.css` files imported by components, plus a global `style.css`.
 - **TypeScript types** — interfaces live in `src/types/`. Respect these contracts.
 - **Norce filter format** — `key1|val1,val2;key2|val3` (semicolon-separated groups, pipe-separated key/values, comma-separated multi-values). `parf` is the exception: its values join with `*` (AND between parametrics, OR within one), and its tokens are `L<pid>_<valueId>`, `M<pid>_<valueId>` or `V<pid>_<from>-<to>`.
