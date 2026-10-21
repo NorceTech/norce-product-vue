@@ -214,7 +214,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { inject, ref, watch } from 'vue'
+import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useBasket } from '@/composables/useBasket'
@@ -235,6 +236,7 @@ const {
 } = useBasket()
 const { culture } = useCulture()
 const { t } = useI18n()
+const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>
 
 const orderId = ref<string | null>(null)
 const paymentId = ref<string | null>(null)
@@ -430,9 +432,14 @@ function getErrorMessage(err: any, fallback: string) {
   return err?.message || fallback
 }
 
-onMounted(() => {
-  initCheckout()
-})
+// Not before App.vue has checked the culture against GetApplication, the same
+// wait as the other views. The culture goes into the NCO order, and an address
+// with a culture the application does not offer is moved to the primary one
+// first: starting on mount initiated an order in the unoffered culture, and a
+// second one after the move.
+watch(isCultureInitialized, (ready) => {
+  if (ready) initCheckout()
+}, { immediate: true })
 
 // The culture goes into the NCO order when it is initiated, so a language
 // switch starts the checkout over. App.vue keys RouterView on the path without
@@ -442,6 +449,8 @@ onMounted(() => {
 // belongs to the order that was paid, and starting over under a payment on its
 // way would swap the order it confirms.
 watch(culture, () => {
+  // App.vue moving an unoffered culture, before the first start above.
+  if (!isCultureInitialized.value) return
   if (isComplete.value || completing) return
   initCheckout()
 })
