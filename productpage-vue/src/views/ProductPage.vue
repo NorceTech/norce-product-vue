@@ -718,10 +718,20 @@ watch(() => props.culture, async () => {
       return;
     }
   } catch (error: any) {
-    if (thisSwitch === latestSwitch) {
-      debugPopup?.show([{ context: 'Product', message: error.message }]);
+    if (thisSwitch !== latestSwitch) return;
+    // 404: the product has no name in this culture, and so no page in it -
+    // see /api/uniquename. The address now names nothing that exists here, and
+    // would fail when reloaded or shared. The start page in this language is
+    // the nearest address that does exist.
+    if (error.response?.status === 404) {
+      debugPopup?.show([{ context: 'Product', message: error.response.data?.error ?? error.message }]);
+      await router.replace({ name: 'ProductListView' });
+      return;
     }
-    return;
+    // Any other failure says nothing about the address. It may well be valid -
+    // Back to an earlier entry, or a name that is the same in both cultures -
+    // so load it as it stands rather than leave the old language on screen.
+    debugPopup?.show([{ context: 'Product', message: error.message }]);
   }
 
   await loadPage();
