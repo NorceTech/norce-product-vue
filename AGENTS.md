@@ -52,7 +52,9 @@ Norce call, each with its own mock branch, so mock and live run the same orchest
 composition in the BFF: a product page that sequences Norce calls from the browser is the pattern
 the Storefront Architecture module warns against. Promotions, flags and relations degrade to `[]`
 and are named in `errors`; only the product can fail the request. `GetProductByUniqueName` answers
-an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` itself.
+an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` itself. Every read
+through `fetchData` has a 5 s timeout (`readTimeout`): the page waits for two rounds of calls and
+the browser gives up after 15 s, so a hanging extra has to fail inside that, not hold the product.
 
 The four single-call routes below it are no longer used by the frontend. They stay because lessons
 name them (the endpoint table in *Fetching Product Data*, the `/api/product/any-name` exercise in
