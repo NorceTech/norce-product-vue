@@ -14,13 +14,13 @@
       <img
           v-if="imageKey"
           :src="cdnImg(imageKey, imageOptions)"
-          :alt="name"
+          :alt="displayName"
       />
       <div v-else class="placeholder" />
     </div>
 
     <h3 class="product-name">
-      {{ name }}
+      {{ displayName }}
     </h3>
 
     <p class="product-price">
@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { cdnImg } from '@/composables/useHelpers';
+import { cdnImg, decodeEntities } from '@/composables/useHelpers';
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -50,6 +50,9 @@ const props = defineProps({
   // "list" | "relation"
   variant: { type: String, default: 'list' }
 });
+
+// Names can come from Norce with HTML entities in them; see decodeEntities.
+const displayName = computed(() => decodeEntities(props.name));
 
 const formattedPrice = computed(() => {
   return props.price.toLocaleString(props.locale, {
