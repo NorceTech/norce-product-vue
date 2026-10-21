@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, provide, onMounted, inject, watch, Ref } from 'vue'
-import { RouterView } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import api, { setBffHealthCallback } from '@/services/api'
 import LanguageSelector from '@/components/LanguageSelector.vue'
 import { useCulture } from '@/composables/useCulture'
@@ -47,6 +47,7 @@ const applicationName = ref<string>('');
 const { culture: globalCulture, updateCulture } = useCulture();
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
 const { itemCount, toggleDrawer, initFromStorage } = useBasket();
+const route = useRoute();
 
 // Demo-only storefront theme - not part of the lesson, see useTheme.ts.
 // Loaded after the application (the logo needs the media client id) and again
@@ -128,7 +129,15 @@ onMounted(async () => {
     {{ $t('bff.errorMessage') }}
   </div>
 
-  <RouterView :key="globalCulture" />
+  <!-- Keyed on the path: another product is another page, so Vue builds it
+       from scratch - no variant, gallery or lightbox state left over from the
+       last one. Vue Router reuses the component when only a param changes, and
+       keyed on culture alone, clicking a related product changed the URL and
+       nothing else. Not keyed on culture: a language switch is the same page,
+       and each view says itself what it does on one (see the globalCulture
+       watchers). The product page needs that - it has to look up the
+       product's unique name in the new language before it can move there. -->
+  <RouterView :key="route.path" />
   <CartDrawer />
 
   <div v-if="visible" class="debug-popup">

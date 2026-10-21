@@ -63,6 +63,11 @@ export default {
   getProductPage(uniqueName: string) {
     return apiClient.get<ProductPageData>(`/productpage/${uniqueName}`);
   },
+  // The product's unique name in the current culture. Unique names differ per
+  // culture and the Id does not, so a language switch goes through the Id.
+  getUniqueName(productId: number) {
+    return apiClient.get<{ uniqueName: string }>(`/uniquename/${productId}`);
+  },
   getProducts(params: Record<string, string>) {
     return apiClient.get('/products', { params });
   },
