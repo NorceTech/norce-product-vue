@@ -28,6 +28,8 @@ Two consequences of that rule:
 
 Check the relationship with `git merge-base --is-ancestor storefront main`, which must succeed.
 
+Dependency bumps follow the same rule. `.github/dependabot.yml` sends version updates to `storefront`, but GitHub always raises security updates against the default branch, `main`: make that bump on `storefront`, merge it forward, and close the Dependabot pull request.
+
 ## BFF Endpoints (storefront branch)
 
 | Endpoint | Norce Service Call | Mock file |
