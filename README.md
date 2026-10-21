@@ -258,8 +258,9 @@ The BFF is kept small enough to read in one sitting, and that costs four
 shortcuts a production storefront should not take:
 
 - **No entity mapping.** Norce's objects reach the browser as they are; only
-  `GetApplication` is trimmed. A real storefront maps each answer to the subset
-  its pages use, and caches the mapped object.
+  `GetApplication` is trimmed, and the cost fields below are taken out. A real
+  storefront maps each answer to the subset its pages use, and caches the
+  mapped object.
 - **One cache, one retention.** Everything sits in one in-process cache for an
   hour. A real storefront caches in groups — master data such as flags and
   cultures for about a day, product data for about an hour, prices and stock for
@@ -280,6 +281,16 @@ another language than it was made in — shared, bookmarked, or reached with Bac
 after a language switch — finds nothing. A real storefront puts the culture in
 the path, such as `/sv-SE/product/…`, and so always knows which culture a name
 belongs to.
+
+**What the BFF does take out: cost.** Norce returns what an item costs
+the merchant next to what it sells for. On a product, `CostPurchase` and
+`CostUnit` are "included for margin calculations", and every variant carries
+its own pair; a basket row has the same two as `Cost` and `CostUnit`. Passed
+through, they would put the purchase cost in every visitor's browser, so the
+BFF strips them: `withoutCosts` from the product and its variants, in mock mode
+too, and `basketWithoutCosts` from each basket row. The product list,
+relations, promotions and flags carry no cost fields. A storefront that maps
+its entities gets this for free, by never mapping the costs in.
 
 
 ## Demo theme (not part of the lessons)

@@ -53,7 +53,11 @@ Norce call, each with its own mock branch, so mock and live run the same orchest
 composition in the BFF: a product page that sequences Norce calls from the browser is the pattern
 the Storefront Architecture module warns against. Promotions, flags and relations degrade to `[]`
 and are named in `errors`; only the product can fail the request. `GetProductByUniqueName` answers
-an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` itself.
+an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` itself. The four
+product-page functions pass `pageCallTimeout` (4 s) to `fetchData`, which applies it to the token
+request too: a cold token and two rounds of reads stay under the browser's 15 s, so a hanging extra
+fails inside that instead of holding the product. Other reads pass no timeout, so a slow product
+list still gets the browser's full 15 s.
 
 The four single-call routes below it are no longer used by the frontend. They stay because lessons
 name them (the endpoint table in *Fetching Product Data*, the `/api/product/any-name` exercise in
@@ -79,6 +83,7 @@ choosing those is checkout's job.
 - **Price fields differ per service** — the Product Service returns `Price` (ex VAT) and `PriceIncVat`. Do not mix inc/ex VAT fields in one fallback chain.
 - **Money formatting** — use `formatMoney()` from `useHelpers`; the selected culture decides the format, never a hard-coded locale.
 - **Types are enforced** — `npm run typecheck` (`vue-tsc --noEmit`) must pass; `npm run build` runs it first.
+- **Costs never reach the browser** — products and baskets pass through unmapped, except the merchant's costs: `withoutCosts()` drops `CostPurchase` and `CostUnit` from a product and each of its variants, `basketWithoutCosts()` drops `Cost` and `CostUnit` from basket rows. A new route that returns a product or a basket goes through them.
 - **CSS** — plain CSS in separate `.css` files imported by components, plus a global `style.css`.
 - **TypeScript types** — interfaces live in `src/types/`. Respect these contracts.
 - **Norce filter format** — `key1|val1,val2;key2|val3` (semicolon-separated groups, pipe-separated key/values, comma-separated multi-values). `parf` is the exception: its values join with `*` (AND between parametrics, OR within one), and its tokens are `L<pid>_<valueId>`, `M<pid>_<valueId>` or `V<pid>_<from>-<to>`.
