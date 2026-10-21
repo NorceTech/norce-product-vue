@@ -226,7 +226,10 @@ async function initFromStorage() {
 // kept the old language until some unrelated mutation happened to refresh it -
 // and a culture that was invalid at startup was never retried after App.vue
 // corrected it. Registered once, at module level, the same way useCulture does.
-watch(useCulture().culture, () => {
+// The first culture is not a switch: the router sets it from the address at
+// startup, and App.vue restores the basket in that culture anyway.
+watch(useCulture().culture, (newCulture, oldCulture) => {
+  if (!oldCulture) return
   serialize(() => {
     // Resolved inside the queued call, not when the watch fires. Capturing it
     // early meant holding an id that could be obsolete by the time the queue got

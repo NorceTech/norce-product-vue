@@ -59,7 +59,7 @@
           <button class="btn btn-outline cart-clear" :disabled="isLoading" @click="clearBasket">
             {{ $t('cart.clear') }}
           </button>
-          <router-link to="/checkout" class="btn primary cart-checkout" @click="closeDrawer">
+          <router-link :to="{ name: 'CheckoutView' }" class="btn primary cart-checkout" @click="closeDrawer">
             {{ $t('cart.checkout') }}
           </router-link>
         </footer>

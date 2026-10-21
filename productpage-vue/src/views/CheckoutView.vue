@@ -10,7 +10,7 @@
       <p v-if="orderId" class="checkout-order-id">
         {{ $t('checkout.orderIdLabel') }} <strong>{{ orderId }}</strong>
       </p>
-      <router-link to="/" class="btn primary checkout-submit">
+      <router-link :to="{ name: 'ProductListView' }" class="btn primary checkout-submit">
         {{ $t('checkout.backToShop') }}
       </router-link>
     </section>
@@ -443,16 +443,17 @@ function getErrorMessage(err: any, fallback: string) {
 }
 
 // Wait for App.vue to settle the culture, as the other views do. Started on
-// mount, a stored culture the application does not offer went into one NCO
-// order, and App.vue's correction a moment later started a second.
+// mount, an address with a culture the application does not offer went into
+// one NCO order, and App.vue's move to the primary culture a moment later
+// started a second.
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>
 watch(isCultureInitialized, (isInitialized) => {
   if (isInitialized) initCheckout()
 }, { immediate: true })
 
 // The culture goes into the NCO order when it is initiated, so a language
-// switch starts the checkout over. App.vue keys RouterView on the path, not the
-// culture, so this view is kept on a switch and has to do that itself.
+// switch starts the checkout over. App.vue keys RouterView on the path without
+// its culture, so this view is kept on a switch and has to do that itself.
 //
 // Not once the order is placed: the confirmation belongs to the order that was
 // paid. Not while it is being placed either, since starting over under a
@@ -460,7 +461,7 @@ watch(isCultureInitialized, (isInitialized) => {
 // over afterwards instead, if the payment failed.
 watch(culture, () => {
   // No start yet: the first one will use the new culture anyway. This is
-  // App.vue replacing a stored culture just before it lets the first start go.
+  // App.vue moving an unoffered culture just before it lets the first start go.
   if (latestStart === 0) return
   if (isComplete.value) return
   if (completing) {

@@ -665,7 +665,11 @@ function shapeApplication(appData) {
         // that way switching APPLICATION_ID switches the images too.
         ClientId: appData?.Client?.Id ?? null,
         ClientName: appData?.Client?.Name ?? null,
-        Cultures: cultures
+        Cultures: cultures,
+        // The application's primary culture - GetApplication calls it
+        // Cultures.Default. It is what Norce answers in when a call names no
+        // culture, and the storefront sends an address without one there too.
+        PrimaryCulture: appData?.Cultures?.Default?.Code ?? null
     };
 }
 
