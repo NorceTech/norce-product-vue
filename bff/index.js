@@ -33,12 +33,13 @@ app.use(cors());
 app.use(express.json());
 const port = process.env.PORT || 3000;
 const cacheDuration = 3600 * 1000; // 1 hour
-// How long one Norce read through fetchData may take. The product page waits
-// for two rounds of reads - product, promotions and flags, then relations - and
-// the browser gives up after 15 s (see api.ts). Without a limit, one hanging
-// extra kept the whole page waiting past that; with it, the call fails in time
-// and /api/productpage leaves that extra out.
-const readTimeout = 5000;
+// The product page's Norce calls have to fit inside the browser's 15 s (see
+// api.ts): a token when the cache is cold, then two rounds of reads - product,
+// promotions and flags, then relations. 4 s per step keeps the worst case at
+// 12 s, so a hanging extra fails in time and /api/productpage leaves it out
+// instead of holding the product back. Only the product page's calls use it;
+// the product list and the metadata reads keep the browser's full 15 s.
+const pageCallTimeout = 4000;
 
 const apiConfig = {
     api_base: process.env.API_BASE,
@@ -153,7 +154,7 @@ function readJson(fileName, res) {
 }
 
 
-async function getAuthToken() {
+async function getAuthToken(timeout = 0) {
     const cachedToken = cache.get('authToken');
     if (cachedToken) {
         return cachedToken;
@@ -168,6 +169,7 @@ async function getAuthToken() {
 
     try {
         const response = await axios.post(tokenUrl, credentials, {
+            timeout,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         const token = response.data.access_token;
@@ -179,8 +181,10 @@ async function getAuthToken() {
     }
 }
 
-async function fetchData(url, cacheKey) {
-        if (!apiConfig.api_base) {
+// `timeout` is in milliseconds and covers the token request as well, when one is
+// needed. 0, the default, means no limit, as in axios.
+async function fetchData(url, cacheKey, timeout = 0) {
+    if (!apiConfig.api_base) {
         console.error('ERROR: apiConfig.api_base is undefined. Cannot fetch data from external API.');
         throw new Error('API_BASE is not configured. Please check your .env file.');
     }
@@ -192,10 +196,11 @@ async function fetchData(url, cacheKey) {
     }
 
     try {
-        const token = await getAuthToken();        console.log(`[NORCE REQUEST] URL: ${url}`);
+        const token = await getAuthToken(timeout);
+        console.log(`[NORCE REQUEST] URL: ${url}`);
 
         const response = await axios.get(url, {
-            timeout: readTimeout,
+            timeout,
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'applicationId': apiConfig.application_id
@@ -384,7 +389,7 @@ async function getProduct(uniqueName, culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/GetProductByUniqueName?${queryParams}`;
-    return withoutCosts(await fetchData(url, `product_${uniqueName}_${culture}`));
+    return withoutCosts(await fetchData(url, `product_${uniqueName}_${culture}`, pageCallTimeout));
 }
 
 // Norce Product Service — active promotions for a product, by its unique name
@@ -399,7 +404,7 @@ async function getPromos(uniqueName, culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/ListPromotionsByProductUniqueName?${queryParams}`;
-    return fetchData(url, `promos_${uniqueName}_${culture}`);
+    return fetchData(url, `promos_${uniqueName}_${culture}`, pageCallTimeout);
 }
 
 // Norce Product Service — all product flags (New, Sale, etc.), to resolve FlagIdSeed
@@ -412,7 +417,7 @@ async function getFlags(culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/ListFlags?${queryParams}`;
-    return fetchData(url, `flags_${culture}`);
+    return fetchData(url, `flags_${culture}`, pageCallTimeout);
 }
 
 // Norce Product Service — related products (accessories, alternatives, etc.)
@@ -427,7 +432,7 @@ async function getRelations(productId, culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/ListProductRelations?${queryParams}`;
-    return fetchData(url, `relations_${productId}_${culture}`);
+    return fetchData(url, `relations_${productId}_${culture}`, pageCallTimeout);
 }
 
 // Everything the product page shows, in one request from the browser.
