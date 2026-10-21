@@ -71,6 +71,7 @@ choosing those is checkout's job.
 - **`run.ps1 -s <slug> -e <environment>`** composes the API host, and sets `NCO_BASE` to the same host. Moving one without the other puts Commerce and Checkout in different environments, which fails deep in the order flow rather than at startup. Production has no environment segment in the host name.
 - **Media CDN** — image and file `Key`s need a client-specific host (`VITE_MEDIA_CDN_HOST`), which `run.ps1 -e` moves with the API host. `Path` is only populated for external links like YouTube, so never rely on it for images.
 - **A 5xx from the BFF does not mean the BFF is down** — it answered; an upstream Norce call failed. Only a missing response means unreachable.
+- **Names can carry HTML entities** — Norce returns text as it is stored, and Norce Open Demo has a product named `…13&quot;`. Show product names through `decodeEntities()` in `useHelpers`; `ProductCard` and `getAlt` already do. Vue escapes `{{ }}`, so without it the entity shows as written.
 - **`ProductCard.vue`** — reuse this component for any product grid. Extend with props rather than duplicating.
 - **Translations** — all user-facing strings use `vue-i18n` keys in `src/locales/en.json` and `sv.json`.
 
