@@ -39,6 +39,7 @@ Check the relationship with `git merge-base --is-ancestor storefront main`, whic
 | `GET /api/relations/:productId?culture=xx` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName?culture=xx` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags?culture=xx` | `ListFlags` | `flags.json` |
+| `GET /api/uniquename/:productId?culture=xx` | `GetProduct` | `product.json` |
 | `GET /api/application` | `GetApplication` (Metadata Service) | `cultures.json` |
 | `GET /api/basket/:basketId` | `GetBasket` (Shopping Service) | in-memory (`mockBasket.js`) |
 | `POST /api/basket` | `CreateBasket` | in-memory |
@@ -57,6 +58,13 @@ an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` 
 The four single-call routes below it are no longer used by the frontend. They stay because lessons
 name them (the endpoint table in *Fetching Product Data*, the `/api/product/any-name` exercise in
 *Storefront Architecture*), and are removed together with that lesson change, not before.
+
+`/api/uniquename/:productId` is the product page's language switch. Unique names are per culture
+(Open Demo's product 13 is `blaklader-4949-softshell-jakke` in sv-SE, `…-jacket` in en-GB), and
+`GetProductByUniqueName` matches a name only in the requested culture or as the product's default
+name — see `GetIdPartNoAndUniqueUrlNameByName`. So the page sends the `Id`, which is the same in
+every culture, gets the name back from `GetProduct` and `router.replace`s to it. Page loads still go
+by unique name, as the lessons teach.
 
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong

@@ -229,6 +229,7 @@ else looks fine.
 | `GET /api/relations/:productId` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags` | `ListFlags` | `flags.json` |
+| `GET /api/uniquename/:productId` | `GetProduct` | `product.json` |
 | `GET /api/application` | `GetApplication` (Metadata) | `cultures.json` |
 
 `/api/productpage` is what the product page calls. It returns
@@ -238,6 +239,13 @@ an empty list and an entry in `errors` rather than a failed request. The four
 single-call routes below it make the same Norce calls one at a time; the
 frontend no longer uses them, and they stay while the lessons still point at
 them.
+
+`/api/uniquename/:productId` returns `{ uniqueName }`, the product's unique name
+in the requested culture. Unique names are per culture, and
+`GetProductByUniqueName` finds a name only in its own culture or when it is the
+product's default name, so a language switch on the product page cannot ask for
+the same name again. It asks for the new name by `Id`, which is the same in
+every culture, and moves there. Page loads still go by unique name.
 
 `/api/application` returns `{ Id, Name, Url, Cultures }`. It used to be
 `/api/cultures` and threw away everything but the culture list — including
@@ -265,6 +273,13 @@ shortcuts a production storefront should not take:
   key it caches a price under.
 
 The Storefront Architecture module explains each of these.
+
+One more sits outside the BFF: **the culture is not in the URL.** It is kept in
+the browser, and unique names differ per culture, so a product link opened in
+another language than it was made in — shared, bookmarked, or reached with Back
+after a language switch — finds nothing. A real storefront puts the culture in
+the path, such as `/sv-se/product/…`, and so always knows which culture a name
+belongs to.
 
 
 ## Demo theme (not part of the lessons)
