@@ -156,6 +156,10 @@ function Start-NpmApp {
 Assert-Tool -name "node" -versionArg "--version"
 Assert-Tool -name "npm"  -versionArg "--version"
 
+# The same Node.js version check that `npm install` runs in the repository root.
+node (Join-Path $PSScriptRoot "scripts/check-node.js")
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
 $root = $PSScriptRoot
 $bffPath = Join-Path $root "bff"
 $fePath  = Join-Path $root "productpage-vue"
