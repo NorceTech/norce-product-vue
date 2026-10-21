@@ -319,11 +319,20 @@ response; it is no longer served directly.
 |---|---|---|
 | `GET /api/products` | `ListProducts2` | `productlist.json` |
 | `GET /api/productfilters` | `ListProductFilters2` | `productfilters.json` |
+| `GET /api/productpage/:uniqueName` | `GetProductByUniqueName`, `ListPromotionsByProductUniqueName` and `ListFlags` in parallel, then `ListProductRelations` | the four below |
 | `GET /api/product/:uniqueName` | `GetProductByUniqueName` | `product.json` |
 | `GET /api/relations/:productId` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags` | `ListFlags` | `flags.json` |
 | `GET /api/application` | `GetApplication` (Metadata) | `cultures.json` |
+
+`/api/productpage` is what the product page calls. It returns
+`{ product, promotions, relations, flags, errors }`: only the product decides
+whether there is a page, so a failed promotions, relations or flags call becomes
+an empty list and an entry in `errors` rather than a failed request. The four
+single-call routes below it make the same Norce calls one at a time; the
+frontend no longer uses them, and they stay while the lessons still point at
+them.
 
 `/api/application` returns `{ Id, Name, Url, ClientId, ClientName, Cultures }`. It used to be
 `/api/cultures` and threw away everything but the culture list — including
@@ -352,6 +361,40 @@ read from the request body — the price list decides the price, server side.
 | `POST /api/checkout/nonpsp/.../complete` | Complete payment | `checkout-complete.json` |
 | `PUT /api/checkout/orders/:id/customer/billing` | Update billing | `checkout-billing.json` |
 | `PUT /api/checkout/orders/:id/customer/shipping` | Update shipping | `checkout-shipping.json` |
+
+
+## What the sample simplifies
+
+The BFF is kept small enough to read in one sitting, and that costs four
+shortcuts a production storefront should not take:
+
+- **No entity mapping.** Norce's objects reach the browser as they are; only
+  `GetApplication` is trimmed, and the cost fields below are taken out. A real
+  storefront maps each answer to the subset its pages use, and caches the
+  mapped object.
+- **One cache, one retention.** Everything sits in one in-process cache for an
+  hour. A real storefront caches in groups — master data such as flags and
+  cultures for about a day, product data for about an hour, prices and stock for
+  minutes — and usually in a shared store such as Redis.
+- **One root category, no category navigation.** The catalogue is scoped to
+  `CATEGORY_SEED` from `bff/.env`. A real storefront builds its navigation from
+  the category tree.
+- **Cache keys without customer or price list.** There is no customer pricing,
+  so the keys carry only what varies here, such as the product and the
+  culture. A real storefront with customer prices puts the price list in every
+  key it caches a price under.
+
+The Storefront Architecture module explains each of these.
+
+**What the BFF does take out: cost.** Norce returns what an item costs
+the merchant next to what it sells for. On a product, `CostPurchase` and
+`CostUnit` are "included for margin calculations", and every variant carries
+its own pair; a basket row has the same two as `Cost` and `CostUnit`. Passed
+through, they would put the purchase cost in every visitor's browser, so the
+BFF strips them: `withoutCosts` from the product and its variants, in mock mode
+too, and `basketWithoutCosts` from each basket row. The product list,
+relations, promotions and flags carry no cost fields. A storefront that maps
+its entities gets this for free, by never mapping the costs in.
 
 
 ## Demo theme (not part of the lessons)

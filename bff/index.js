@@ -33,6 +33,14 @@ app.use(cors());
 app.use(express.json());
 const port = process.env.PORT || 3000;
 const cacheDuration = 3600 * 1000; // 1 hour
+// The product page's Norce calls have to fit inside the browser's 15 s (see
+// api.ts): a token when the cache is cold, then two rounds of reads - product,
+// promotions and flags, then relations. 4 s per step keeps the worst case at
+// 12 s, so a hanging extra fails in time and /api/productpage leaves it out
+// instead of holding the product back. Only /api/productpage passes it: the
+// single-call routes, the product list and the metadata reads make one round
+// and keep the browser's full 15 s.
+const pageCallTimeout = 4000;
 
 const apiConfig = {
     api_base: process.env.API_BASE,
@@ -123,20 +131,31 @@ if (useMockData) {
 }
 
 const dataDir = path.join(__dirname, '../mockdata');
-function readJson(fileName, res) {
+// Throws when the fixture is missing, so that code combining several fixtures
+// can decide for itself what a missing one means. readJson below answers the
+// request with a 500 instead.
+function readFixture(fileName) {
     try {
         const filePath = path.join(dataDir, fileName);
         const fileContent = fs.readFileSync(filePath, 'utf8');
         return JSON.parse(fileContent);
     } catch (error) {
         console.error(`Error reading mock data file ${fileName}:`, error);
+        throw error;
+    }
+}
+
+function readJson(fileName, res) {
+    try {
+        return readFixture(fileName);
+    } catch (error) {
         res.status(500).json({ error: 'Mock data not available' });
         return null;
     }
 }
 
 
-async function getAuthToken() {
+async function getAuthToken(timeout = 0) {
     const cachedToken = cache.get('authToken');
     if (cachedToken) {
         return cachedToken;
@@ -151,6 +170,7 @@ async function getAuthToken() {
 
     try {
         const response = await axios.post(tokenUrl, credentials, {
+            timeout,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         const token = response.data.access_token;
@@ -162,8 +182,10 @@ async function getAuthToken() {
     }
 }
 
-async function fetchData(url, cacheKey) {
-        if (!apiConfig.api_base) {
+// `timeout` is in milliseconds and covers the token request as well, when one is
+// needed. 0, the default, means no limit, as in axios.
+async function fetchData(url, cacheKey, timeout = 0) {
+    if (!apiConfig.api_base) {
         console.error('ERROR: apiConfig.api_base is undefined. Cannot fetch data from external API.');
         throw new Error('API_BASE is not configured. Please check your .env file.');
     }
@@ -175,9 +197,11 @@ async function fetchData(url, cacheKey) {
     }
 
     try {
-        const token = await getAuthToken();        console.log(`[NORCE REQUEST] URL: ${url}`);
+        const token = await getAuthToken(timeout);
+        console.log(`[NORCE REQUEST] URL: ${url}`);
 
         const response = await axios.get(url, {
+            timeout,
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'applicationId': apiConfig.application_id
@@ -333,20 +357,33 @@ function buildContextParams(source) {
     });
     return params.toString();
 }
-// Norce Product Service - fetch a single product by its unique name (slug)
-app.get('/api/product/:uniqueName', async (req, res) => {
-    if (useMockData) {
-        const data = readJson('product.json', res);
-        if (data) {
-            res.json(data);
-        }
-        return;
-    }
 
-    const { uniqueName } = req.params;
-    const { culture } = req.query; 
-    
-        const queryParams = new URLSearchParams({
+// The product page's Norce calls, one function per call. Each owns its
+// parameters and its cache key and makes exactly one request through fetchData,
+// so the routes below only decide which calls to make and in what order - and
+// how long each may take, through `timeout`, which goes on to fetchData. In
+// mock mode each returns its fixture - the same captured answer whatever the
+// name or id - which keeps that order identical in both modes.
+
+// Norce sends what a product costs the merchant along with what it sells for:
+// CostPurchase and CostUnit, "included for margin calculations". The product
+// otherwise reaches the browser as Norce sent it (see "What the sample
+// simplifies" in the README), but passing these through would put the purchase
+// cost in every visitor's browser. So the BFF takes them out: from the product,
+// and from each of its variants, which carry their own.
+function withoutCosts(product) {
+    if (!product) return product;
+
+    const { CostPurchase, CostUnit, ...rest } = product;
+    if (Array.isArray(rest.Variants)) rest.Variants = rest.Variants.map(withoutCosts);
+    return rest;
+}
+
+// Norce Product Service — a single product by its unique name (slug)
+async function getProduct(uniqueName, culture, timeout = 0) {
+    if (useMockData) return withoutCosts(readFixture('product.json'));
+
+    const queryParams = new URLSearchParams({
         format: 'json',
         uniqueName: uniqueName,
         statusSeed: '1,3',                          // Active (1) + Expiring (3)
@@ -354,10 +391,109 @@ app.get('/api/product/:uniqueName', async (req, res) => {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/GetProductByUniqueName?${queryParams}`;
-    const cacheKey = `product_${uniqueName}_${culture}`; 
+    return withoutCosts(await fetchData(url, `product_${uniqueName}_${culture}`, timeout));
+}
 
+// Norce Product Service — active promotions for a product, by its unique name
+async function getPromos(uniqueName, culture, timeout = 0) {
+    if (useMockData) return readFixture('promos.json');
+
+    const queryParams = new URLSearchParams({
+        format: 'json',
+        uniqueName: uniqueName,
+        statusSeed: '1,3',
+        ...(culture && { cultureCode: culture }),
+    }).toString();
+
+    const url = `${apiConfig.api_base}${apiConfig.product_service}/ListPromotionsByProductUniqueName?${queryParams}`;
+    return fetchData(url, `promos_${uniqueName}_${culture}`, timeout);
+}
+
+// Norce Product Service — all product flags (New, Sale, etc.), to resolve FlagIdSeed
+async function getFlags(culture, timeout = 0) {
+    if (useMockData) return readFixture('flags.json');
+
+    const queryParams = new URLSearchParams({
+        format: 'json',
+        ...(culture && { cultureCode: culture }),
+    }).toString();
+
+    const url = `${apiConfig.api_base}${apiConfig.product_service}/ListFlags?${queryParams}`;
+    return fetchData(url, `flags_${culture}`, timeout);
+}
+
+// Norce Product Service — related products (accessories, alternatives, etc.)
+async function getRelations(productId, culture, timeout = 0) {
+    if (useMockData) return readFixture('relations.json');
+
+    const queryParams = new URLSearchParams({
+        format: 'json',
+        productId: productId,
+        statusSeed: '1,3',
+        ...(culture && { cultureCode: culture }),
+    }).toString();
+
+    const url = `${apiConfig.api_base}${apiConfig.product_service}/ListProductRelations?${queryParams}`;
+    return fetchData(url, `relations_${productId}_${culture}`, timeout);
+}
+
+// Everything the product page shows, in one request from the browser.
+//
+// The product, its promotions and the flag list do not depend on each other:
+// promotions are looked up by unique name and flags take no product at all, so
+// the three go to Norce together. Relations need the product's Id, which the
+// route does not carry, so they follow once the product is back. That is the
+// fetch pattern from the Storefront Architecture module, minus the mapping step
+// (see "What the sample simplifies" in the README).
+//
+// Only the product decides whether there is a page. Promotions, flags and
+// relations are extras: if one fails, the page renders without it, and
+// `errors` says what was left out. Every call gets pageCallTimeout, so that
+// one that hangs fails while the browser is still waiting for the answer.
+app.get('/api/productpage/:uniqueName', async (req, res) => {
+    const { uniqueName } = req.params;
+    const { culture } = req.query;
+
+    const errors = [];
+    const leaveOut = (context) => (error) => {
+        console.error(`[PRODUCT PAGE] ${context} left out:`, error.message);
+        errors.push({ context, message: error.message });
+        return [];
+    };
+
+    let product, promotions, flags;
     try {
-        const productData = await fetchData(url, cacheKey);
+        [product, promotions, flags] = await Promise.all([
+            getProduct(uniqueName, culture, pageCallTimeout),
+            getPromos(uniqueName, culture, pageCallTimeout).catch(leaveOut('Promos')),
+            getFlags(culture, pageCallTimeout).catch(leaveOut('Flags')),
+        ]);
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            res.status(404).json({ error: 'Product not found' });
+        } else {
+            res.status(500).json({ error: 'Failed to fetch product data' });
+        }
+        return;
+    }
+
+    // GetProductByUniqueName answers an unknown name with 200 and null, not 404.
+    if (!product) {
+        res.status(404).json({ error: 'Product not found' });
+        return;
+    }
+
+    const relations = await getRelations(product.Id, culture, pageCallTimeout).catch(leaveOut('Relations'));
+
+    res.json({ product, promotions, relations, flags, errors });
+});
+
+// One route per call. The product page no longer uses these - it calls
+// /api/productpage above - but the Fetching Product Data lessons still send you
+// to them, so they stay until those lessons move on.
+app.get('/api/product/:uniqueName', async (req, res) => {
+    try {
+        const productData = await getProduct(req.params.uniqueName, req.query.culture);
         res.json(productData);
     } catch (error) {
         if (error.response && error.response.status === 404) {
@@ -368,88 +504,27 @@ app.get('/api/product/:uniqueName', async (req, res) => {
     }
 });
 
-// Norce Product Service - fetch related products (accessories, alternatives, etc.)
 app.get('/api/relations/:productId', async (req, res) => {
-    if (useMockData) {
-        const data = readJson('relations.json', res);
-        if (data) {
-            res.json(data);
-        }
-        return;
-    }
-
-    const { productId } = req.params;
-    const { culture } = req.query;
-
-    const queryParams = new URLSearchParams({
-        format: 'json',
-        productId: productId,
-        statusSeed: '1,3',
-        ...(culture && { cultureCode: culture }),
-    }).toString();
-
-    const url = `${apiConfig.api_base}${apiConfig.product_service}/ListProductRelations?${queryParams}`;
-    const cacheKey = `relations_${productId}_${culture}`;
-
     try {
-        const relationsData = await fetchData(url, cacheKey);
+        const relationsData = await getRelations(req.params.productId, req.query.culture);
         res.json(relationsData);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch relations data' });
     }
 });
 
-// Norce Product Service - fetch active promotions for a product
 app.get('/api/promos/:uniqueName', async (req, res) => {
-    if (useMockData) {
-        const data = readJson('promos.json', res);
-        if(data){
-            res.json(data);
-        }
-        return;
-    }
-    const { uniqueName } = req.params;
-    const { culture } = req.query;
-
-    const queryParams = new URLSearchParams({
-        format: 'json',
-        uniqueName: uniqueName,
-        statusSeed: '1,3',
-        ...(culture && { cultureCode: culture }),
-    }).toString();
-
-    const url = `${apiConfig.api_base}${apiConfig.product_service}/ListPromotionsByProductUniqueName?${queryParams}`;
-    const cacheKey = `promos_${uniqueName}_${culture}`;
-
     try {
-        const promosData = await fetchData(url, cacheKey);
+        const promosData = await getPromos(req.params.uniqueName, req.query.culture);
         res.json(promosData);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch promos data' });
     }
 });
 
-// Norce Product Service - fetch all product flags (New, Sale, etc.)
 app.get('/api/flags', async (req, res) => {
-    if (useMockData) {
-        const data = readJson('flags.json', res);
-        if(data){
-            res.json(data);
-        }
-        return;
-    }
-
-    const { culture } = req.query; // Extract culture from req.query
-    const queryParams = new URLSearchParams({
-        format: 'json',
-        ...(culture && { cultureCode: culture }), 
-    }).toString();
-
-    const url = `${apiConfig.api_base}${apiConfig.product_service}/ListFlags?${queryParams}`;
-    const cacheKey = `flags_${culture}`; 
-
     try {
-        const flagsData = await fetchData(url, cacheKey);
+        const flagsData = await getFlags(req.query.culture);
         res.json(flagsData);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch flags data' });
@@ -591,6 +666,16 @@ app.get('/api/application', async (req, res) => {
 // what this app teaches and not a pattern to copy - see theme.js for why.
 require('./theme')(app, { apiConfig, fetchData, readJson, useMockData, cacheDuration, dataDir });
 
+// Basket rows carry the merchant's costs too, one of them under another name:
+// Cost is the purchase cost (CostPurchase on the product) and CostUnit is the
+// unit cost. They come out for the same reason as in withoutCosts above. Only
+// the live answers need it - mockBasket.js builds its rows without them.
+function basketWithoutCosts(basket) {
+    if (!Array.isArray(basket?.Items)) return basket;
+
+    return { ...basket, Items: basket.Items.map(({ Cost, CostUnit, ...item }) => item) };
+}
+
 // Norce Shopping Service — get basket by ID
 app.get('/api/basket/:basketId', async (req, res) => {
     if (useMockData) {
@@ -604,7 +689,7 @@ app.get('/api/basket/:basketId', async (req, res) => {
 
     try {
         const basketData = await fetchDataNoCache(url);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch basket' });
     }
@@ -652,7 +737,7 @@ app.post('/api/basket', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, basketBody);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to create basket' });
     }
@@ -692,7 +777,7 @@ app.post('/api/basket/:basketId/items', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, itemBody);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to insert basket item' });
     }
@@ -736,7 +821,7 @@ app.put('/api/basket/:basketId/items/:itemId', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, itemBody);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to update basket item' });
     }
@@ -755,7 +840,7 @@ app.delete('/api/basket/:basketId/items/:lineNo', async (req, res) => {
 
     try {
         const basketData = await sendData('post', url, null);
-        res.json(basketData);
+        res.json(basketWithoutCosts(basketData));
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete basket item' });
     }

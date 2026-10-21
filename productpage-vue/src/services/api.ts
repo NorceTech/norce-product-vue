@@ -3,6 +3,7 @@
 // (except /application itself, which is what tells us the available cultures).
 
 import axios from 'axios';
+import type { ProductPageData } from '@/types';
 
 let currentCulture: string = 'en-US';
 let bffHealthCallback: ((status: 'ok' | 'error') => void) | null = null;
@@ -57,17 +58,10 @@ export const setBffHealthCallback = (callback: (status: 'ok' | 'error') => void)
 };
 
 export default {
-  getProduct(uniqueName: string) {
-    return apiClient.get(`/product/${uniqueName}`);
-  },
-  getRelations(productId: string | number) {
-    return apiClient.get(`/relations/${productId}`);
-  },
-  getPromos(uniqueName: string) {
-    return apiClient.get(`/promos/${uniqueName}`);
-  },
-  getFlags() {
-    return apiClient.get('/flags');
+  // Product, promotions, relations and flags in one call - the BFF decides
+  // which Norce calls can run in parallel, see /api/productpage in bff/index.js.
+  getProductPage(uniqueName: string) {
+    return apiClient.get<ProductPageData>(`/productpage/${uniqueName}`);
   },
   getProducts(params: Record<string, string>) {
     return apiClient.get('/products', { params });
