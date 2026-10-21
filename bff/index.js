@@ -36,8 +36,9 @@ const cacheDuration = 3600 * 1000; // 1 hour
 // api.ts): a token when the cache is cold, then two rounds of reads - product,
 // promotions and flags, then relations. 4 s per step keeps the worst case at
 // 12 s, so a hanging extra fails in time and /api/productpage leaves it out
-// instead of holding the product back. Only the product page's calls use it;
-// the product list and the metadata reads keep the browser's full 15 s.
+// instead of holding the product back. Only /api/productpage passes it: the
+// single-call routes, the product list and the metadata reads make one round
+// and keep the browser's full 15 s.
 const pageCallTimeout = 4000;
 
 const apiConfig = {
@@ -263,7 +264,8 @@ function buildContextParams(source) {
 
 // The product page's Norce calls, one function per call. Each owns its
 // parameters and its cache key and makes exactly one request through fetchData,
-// so the routes below only decide which calls to make and in what order. In
+// so the routes below only decide which calls to make and in what order - and
+// how long each may take, through `timeout`, which goes on to fetchData. In
 // mock mode each returns its fixture - the same captured answer whatever the
 // name or id - which keeps that order identical in both modes.
 
@@ -282,7 +284,7 @@ function withoutCosts(product) {
 }
 
 // Norce Product Service — a single product by its unique name (slug)
-async function getProduct(uniqueName, culture) {
+async function getProduct(uniqueName, culture, timeout = 0) {
     if (useMockData) return withoutCosts(readFixture('product.json'));
 
     const queryParams = new URLSearchParams({
@@ -293,11 +295,11 @@ async function getProduct(uniqueName, culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/GetProductByUniqueName?${queryParams}`;
-    return withoutCosts(await fetchData(url, `product_${uniqueName}_${culture}`, pageCallTimeout));
+    return withoutCosts(await fetchData(url, `product_${uniqueName}_${culture}`, timeout));
 }
 
 // Norce Product Service — active promotions for a product, by its unique name
-async function getPromos(uniqueName, culture) {
+async function getPromos(uniqueName, culture, timeout = 0) {
     if (useMockData) return readFixture('promos.json');
 
     const queryParams = new URLSearchParams({
@@ -308,11 +310,11 @@ async function getPromos(uniqueName, culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/ListPromotionsByProductUniqueName?${queryParams}`;
-    return fetchData(url, `promos_${uniqueName}_${culture}`, pageCallTimeout);
+    return fetchData(url, `promos_${uniqueName}_${culture}`, timeout);
 }
 
 // Norce Product Service — all product flags (New, Sale, etc.), to resolve FlagIdSeed
-async function getFlags(culture) {
+async function getFlags(culture, timeout = 0) {
     if (useMockData) return readFixture('flags.json');
 
     const queryParams = new URLSearchParams({
@@ -321,11 +323,11 @@ async function getFlags(culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/ListFlags?${queryParams}`;
-    return fetchData(url, `flags_${culture}`, pageCallTimeout);
+    return fetchData(url, `flags_${culture}`, timeout);
 }
 
 // Norce Product Service — related products (accessories, alternatives, etc.)
-async function getRelations(productId, culture) {
+async function getRelations(productId, culture, timeout = 0) {
     if (useMockData) return readFixture('relations.json');
 
     const queryParams = new URLSearchParams({
@@ -336,7 +338,7 @@ async function getRelations(productId, culture) {
     }).toString();
 
     const url = `${apiConfig.api_base}${apiConfig.product_service}/ListProductRelations?${queryParams}`;
-    return fetchData(url, `relations_${productId}_${culture}`, pageCallTimeout);
+    return fetchData(url, `relations_${productId}_${culture}`, timeout);
 }
 
 // Everything the product page shows, in one request from the browser.
@@ -350,7 +352,8 @@ async function getRelations(productId, culture) {
 //
 // Only the product decides whether there is a page. Promotions, flags and
 // relations are extras: if one fails, the page renders without it, and
-// `errors` says what was left out.
+// `errors` says what was left out. Every call gets pageCallTimeout, so that
+// one that hangs fails while the browser is still waiting for the answer.
 app.get('/api/productpage/:uniqueName', async (req, res) => {
     const { uniqueName } = req.params;
     const { culture } = req.query;
@@ -365,9 +368,9 @@ app.get('/api/productpage/:uniqueName', async (req, res) => {
     let product, promotions, flags;
     try {
         [product, promotions, flags] = await Promise.all([
-            getProduct(uniqueName, culture),
-            getPromos(uniqueName, culture).catch(leaveOut('Promos')),
-            getFlags(culture).catch(leaveOut('Flags')),
+            getProduct(uniqueName, culture, pageCallTimeout),
+            getPromos(uniqueName, culture, pageCallTimeout).catch(leaveOut('Promos')),
+            getFlags(culture, pageCallTimeout).catch(leaveOut('Flags')),
         ]);
     } catch (error) {
         if (error.response && error.response.status === 404) {
@@ -384,7 +387,7 @@ app.get('/api/productpage/:uniqueName', async (req, res) => {
         return;
     }
 
-    const relations = await getRelations(product.Id, culture).catch(leaveOut('Relations'));
+    const relations = await getRelations(product.Id, culture, pageCallTimeout).catch(leaveOut('Relations'));
 
     res.json({ product, promotions, relations, flags, errors });
 });
