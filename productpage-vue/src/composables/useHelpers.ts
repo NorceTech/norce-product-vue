@@ -78,11 +78,13 @@ export const formatMoney = (
 // Norce returns text as it is stored, and a name can be stored with HTML
 // entities in it: Norce Open Demo has "Husqvarna 550 XPG Mark II motorsåg
 // 13&quot;". Vue escapes {{ }} and bound attributes, so the entity would show
-// as written. This turns entities into characters and keeps the text only.
-// DOMParser builds an inert document: nothing in it runs or loads.
+// as written. This decodes the entities and nothing else: `<` is escaped
+// first, so that a literal "<XL>" in a name stays text instead of being read
+// as an element and dropped. DOMParser builds an inert document: nothing in it
+// runs or loads.
 export const decodeEntities = (text: string | null | undefined): string =>
     text && text.includes('&')
-        ? new DOMParser().parseFromString(text, 'text/html').documentElement.textContent ?? text
+        ? new DOMParser().parseFromString(text.replace(/</g, '&lt;'), 'text/html').documentElement.textContent ?? text
         : text ?? '';
 
 export const getAlt = (obj: FileLike, fallback: string = ''): string =>
