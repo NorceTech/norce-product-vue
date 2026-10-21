@@ -12,7 +12,7 @@ This storefront covers the core topics of the course:
 - **BFF pattern** — a lightweight Express server that holds the credentials, makes the Norce Commerce calls a page needs — in parallel where they do not depend on each other — and caches the answers. What it leaves out on purpose is listed under [What the sample simplifies](#what-the-sample-simplifies).
 - **Product listing** — fetching products with `ListProducts2` and applying filters with `ListProductFilters2`.
 - **Product detail page** — one BFF call. Behind it `GetProductByUniqueName`, `ListPromotionsByProductUniqueName` and `ListFlags` run in parallel, and `ListProductRelations` follows on the product's `Id`. On the page: variant selection, image galleries, spec grids, flags, promotions and related products.
-- **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call.
+- **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call. The culture is the first part of every address, `/sv-SE/product/…`, because unique names are per culture. An address without one goes to the application's primary culture, which is also what Norce answers in when a call names no culture.
 - **Mock data mode** — with `MOCK_DATA=true` the BFF serves local JSON files from `/mockdata`, so the demo runs without API access. `npm run dev` in the root and `run.ps1` set it for you when there is no `bff/.env` yet.
 
 
@@ -282,9 +282,11 @@ product's default name, so a language switch on the product page cannot ask for
 the same name again. It asks for the new name by `Id`, which is the same in
 every culture, and moves there. Page loads still go by unique name.
 
-`/api/application` returns `{ Id, Name, Url, Cultures }`. It used to be
-`/api/cultures` and threw away everything but the culture list — including
-`Name`, which is the storefront's own title and is what the header shows.
+`/api/application` returns `{ Id, Name, Url, ClientId, ClientName, Cultures,
+PrimaryCulture }`. It used to be `/api/cultures` and threw away everything but
+the culture list — including `Name`, which is the storefront's own title and is
+what the header shows. `PrimaryCulture` is what `GetApplication` calls
+`Cultures.Default`; an address without a culture is sent there.
 
 
 ## What the sample simplifies
@@ -309,13 +311,6 @@ shortcuts a production storefront should not take:
   key it caches a price under.
 
 The Storefront Architecture module explains each of these.
-
-One more sits outside the BFF: **the culture is not in the URL.** It is kept in
-the browser, and unique names differ per culture, so a product link opened in
-another language than it was made in — shared, bookmarked, or reached with Back
-after a language switch — finds nothing. A real storefront puts the culture in
-the path, such as `/sv-SE/product/…`, and so always knows which culture a name
-belongs to.
 
 **What the BFF does take out: cost.** Norce returns what an item costs
 the merchant next to what it sells for. On a product, `CostPurchase` and

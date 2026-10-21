@@ -1,13 +1,13 @@
 <template>
   <main class="container" v-if="product">
     <nav class="text-sm mb-4">
-      <a href="/">{{ $t('productPage.shop') }}</a> /
+      <router-link :to="{ name: 'ProductListView' }">{{ $t('productPage.shop') }}</router-link> /
       <span v-for="(c,i) in product.Categories" :key="c.Id">
         <template v-if="i"> / </template>{{ c.Value }}
       </span>
     </nav>
 
-    <router-link to="/" class="back-to-list-link">
+    <router-link :to="{ name: 'ProductListView' }" class="back-to-list-link">
       &lt; {{ $t('productPage.backToList') }}
     </router-link>
 
@@ -266,6 +266,13 @@ const flags = ref<Flag[]>([])
 const debugPopup = inject<DebugPopup>('debugPopup');
 
 const props = defineProps({
+  // Both from the address. The culture is a prop here, not only the global
+  // ref, so that the watcher below fires only while this page stays mounted -
+  // see the comment there.
+  culture: {
+    type: String,
+    required: true,
+  },
   uniqueName: {
     type: String,
     required: true,
@@ -594,8 +601,11 @@ function handleAddToBasket() {
   } as BasketItem)
 }
 
+// Resolves to false only when the product page answered 404: the name in the
+// address means nothing in this culture. See the language switch below.
 async function fetchProductData() {
   const errors: { context: string; message: string }[] = [];
+  let exists = true;
   try {
     // One call. Which Norce calls run in parallel is the BFF's business, not
     // the browser's. A failed promotions, relations or flags call does not fail
@@ -615,18 +625,20 @@ async function fetchProductData() {
     selectedFacet.value = {};
 
   } catch (error: any) {
+    exists = error.response?.status !== 404;
     errors.push({ context: 'Product', message: error.message });
   }
 
   if (errors.length > 0) {
     debugPopup?.show(errors);
   }
+  return exists;
 }
 
 // The load in progress, or null before the first. A language switch waits for
 // it, because the product's Id - the one thing that is the same in every
 // culture - comes from it.
-let pageLoad: Promise<void> | null = null;
+let pageLoad: Promise<boolean> | null = null;
 
 function loadPage() {
   pageLoad = fetchProductData();
@@ -642,11 +654,18 @@ watch(isCultureInitialized, async (isInitialized) => {
 
 watch(selectedVariant, () => { heroIndex.value = 0; lightboxIndex.value = null })
 
-// A language switch. Unique names are per culture, so the name in the URL may
-// mean nothing in the new language - see /api/uniquename in bff/index.js. Ask
-// for this product's name in the new culture by its Id, and move there if it
+// A language switch: the language selector has put the new culture in front of
+// the old unique name. Unique names are per culture, so that name may mean
+// nothing in the new language - see /api/uniquename in bff/index.js. Ask for
+// this product's name in the new culture by its Id, and move there if it
 // differs; the RouterView key in App.vue then builds the page from scratch. The
 // same name in both cultures is the same page, so it only needs the new texts.
+//
+// The prop changes only while this page stays mounted, which is while the
+// unique name stays the same: a switch in the language selector, or Back to the
+// same name in another culture. Back to another name builds a new page instead
+// (the RouterView key in App.vue), and that page needs no lookup - its address
+// says which culture the name belongs to.
 //
 // Every switch takes a number, and leaving the page takes one too. A switch
 // that finds a newer number after an await has been overtaken - by another
@@ -655,11 +674,10 @@ watch(selectedVariant, () => { heroIndex.value = 0; lightboxIndex.value = null }
 let latestSwitch = 0;
 onUnmounted(() => { latestSwitch++ });
 
-watch(globalCulture, async (newCulture, oldCulture) => {
-  if (!oldCulture) return;
+watch(() => props.culture, async () => {
   // No load yet: the first one will ask in the new culture anyway. This is
-  // App.vue replacing a stored culture the application does not offer, just
-  // before it lets the first load start.
+  // App.vue moving an address with a culture the application does not offer,
+  // just before it lets the first load start.
   if (!pageLoad) return;
 
   const thisSwitch = ++latestSwitch;
@@ -679,8 +697,18 @@ watch(globalCulture, async (newCulture, oldCulture) => {
       return;
     }
   } catch (error: any) {
-    if (thisSwitch === latestSwitch) {
-      debugPopup?.show([{ context: 'Product', message: error.message }]);
+    if (thisSwitch !== latestSwitch) return;
+    debugPopup?.show([{ context: 'Product', message: error.response?.data?.error ?? error.message }]);
+    // A 404 means the product has no name in this culture, and so no page in
+    // it - see /api/uniquename. Any other failure says nothing about the
+    // address: it may well be valid - Back to an earlier entry, or a name that
+    // is the same in both cultures - so load it as it stands. If that finds
+    // nothing either, the address names nothing that exists here and would
+    // fail when reloaded or shared; the start page in this language is the
+    // nearest address that does exist.
+    const exists = error.response?.status !== 404 && await loadPage();
+    if (!exists && thisSwitch === latestSwitch) {
+      await router.replace({ name: 'ProductListView' });
     }
     return;
   }
