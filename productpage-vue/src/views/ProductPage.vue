@@ -649,10 +649,20 @@ async function fetchProductData() {
   }
 }
 
+// The load in progress, or null before the first. A language switch waits for
+// it, because the product's Id - the one thing that is the same in every
+// culture - comes from it.
+let pageLoad: Promise<void> | null = null;
+
+function loadPage() {
+  pageLoad = fetchProductData();
+  return pageLoad;
+}
+
 // Data fetching is deferred until culture is initialized (see watch below)
 watch(isCultureInitialized, async (isInitialized) => {
   if (isInitialized) {
-    await fetchProductData();
+    await loadPage();
   }
 }, { immediate: true }); // Use immediate: true to check on mount
 
@@ -663,12 +673,31 @@ watch(selectedVariant, () => { heroIndex.value = 0; lightboxIndex.value = null }
 // for this product's name in the new culture by its Id, and move there if it
 // differs; the RouterView key in App.vue then builds the page from scratch. The
 // same name in both cultures is the same page, so it only needs the new texts.
+//
+// Every switch takes a number, and leaving the page takes one too. A switch
+// that finds a newer number after an await has been overtaken - by another
+// switch, or by a click to another product - and stops, rather than moving to
+// a name in a language the shopper has already left.
+let latestSwitch = 0;
+onUnmounted(() => { latestSwitch++ });
+
 watch(globalCulture, async (newCulture, oldCulture) => {
   if (!oldCulture) return;
-  if (!product.value) return fetchProductData();
+  // No load yet: the first one will ask in the new culture anyway. This is
+  // App.vue replacing a stored culture the application does not offer, just
+  // before it lets the first load start.
+  if (!pageLoad) return;
+
+  const thisSwitch = ++latestSwitch;
+  // The first load may still be on its way, in the old culture. Asking for the
+  // old name in the new culture instead can find nothing, so wait for the Id.
+  await pageLoad;
+  if (thisSwitch !== latestSwitch) return;
+  if (!product.value) return loadPage();
 
   try {
     const { uniqueName } = await api.getUniqueName(product.value.Id).then(r => r.data);
+    if (thisSwitch !== latestSwitch) return;
     if (uniqueName !== props.uniqueName) {
       // replace, not push: Back should not lead to the old name, which this
       // culture does not know.
@@ -676,11 +705,13 @@ watch(globalCulture, async (newCulture, oldCulture) => {
       return;
     }
   } catch (error: any) {
-    debugPopup?.show([{ context: 'Product', message: error.message }]);
+    if (thisSwitch === latestSwitch) {
+      debugPopup?.show([{ context: 'Product', message: error.message }]);
+    }
     return;
   }
 
-  await fetchProductData();
+  await loadPage();
 });
 
 provide('product', currentItem)
