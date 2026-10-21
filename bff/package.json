@@ -15,9 +15,9 @@
   "dependencies": {
     "axios": "^1.13.2",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.4.2",
     "dotenv-expand": "^1000.0.0",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "memory-cache": "^0.2.0"
   },
   "overrides": {
