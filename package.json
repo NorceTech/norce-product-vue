@@ -1,0 +1,14 @@
+{
+  "name": "norce-product-vue",
+  "description": "Installs and starts the BFF (bff/) and the frontend (productpage-vue/) together. Each keeps its own package.json.",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "preinstall": "node scripts/check-node.js",
+    "postinstall": "npm install --prefix bff && npm install --prefix productpage-vue",
+    "dev": "node scripts/dev.js"
+  }
+}

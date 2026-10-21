@@ -9,11 +9,11 @@ The project demonstrates how to build a product browsing experience on top of th
 
 This storefront covers the core topics of the course:
 
-- **BFF pattern** — a lightweight Express server that proxies Norce Commerce API calls, handles OAuth2 authentication, and caches responses.
-- **Product listing** — fetching products with `ListProducts2`, applying filters with `ListProductFilters2`, and displaying flags with `ListFlags`.
-- **Product detail page** — loading a single product with `GetProductByUniqueName`, showing variant selection, image galleries, spec grids, and related products via `ListProductRelations`.
-- **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call.
-- **Mock data mode** — with `MOCK_DATA=true` the BFF serves local JSON files from `/mockdata`, so the demo runs without API access. `run.ps1` sets it for you when there is no `bff/.env` yet.
+- **BFF pattern** — a lightweight Express server that holds the credentials, makes the Norce Commerce calls a page needs — in parallel where they do not depend on each other — and caches the answers. What it leaves out on purpose is listed under [What the sample simplifies](#what-the-sample-simplifies).
+- **Product listing** — fetching products with `ListProducts2` and applying filters with `ListProductFilters2`.
+- **Product detail page** — one BFF call. Behind it `GetProductByUniqueName`, `ListPromotionsByProductUniqueName` and `ListFlags` run in parallel, and `ListProductRelations` follows on the product's `Id`. On the page: variant selection, image galleries, spec grids, flags, promotions and related products.
+- **Multi-language support** — cultures fetched from `GetApplication` (Metadata Service), with `vue-i18n` for UI translations and `cultureCode` passed to every API call. The culture is the first part of every address, `/sv-SE/product/…`, because unique names are per culture. An address without one goes to the application's primary culture, which is also what Norce answers in when a call names no culture.
+- **Mock data mode** — with `MOCK_DATA=true` the BFF serves local JSON files from `/mockdata`, so the demo runs without API access. `npm run dev` in the root and `run.ps1` set it for you when there is no `bff/.env` yet.
 
 
 ## Project Structure
@@ -32,6 +32,8 @@ This storefront covers the core topics of the course:
 │       ├── types/          # TypeScript interfaces
 │       └── locales/        # en.json, sv.json
 ├── mockdata/               # JSON fixtures for mock mode
+├── package.json            # npm install / npm run dev for both packages
+├── scripts/                # What those two run: dev.js, check-node.js
 ├── run.ps1                 # PowerShell script to start everything
 └── fetchdata/              # HTTP files for refreshing mock data
 ```
@@ -40,23 +42,51 @@ This storefront covers the core topics of the course:
 ## Quick Start
 
 ### Prerequisites
-- Node.js (v18+)
-- npm
 
-### Option A: Manual start (any OS)
+- **Node.js 22 or later**, which comes with npm. Check with `node --version`.
+  If the command is not found, or the version is lower, install the LTS version
+  from [nodejs.org](https://nodejs.org) and open a new terminal. `npm install`
+  stops and says so when the version is too old.
+- **Git**.
 
-To run on the fixtures, copy the example configuration, which sets `MOCK_DATA=true`:
+No Norce credentials are needed to start: without a `bff/.env`, the storefront
+runs on the fixtures in `mockdata/`.
+
+### Start
+
+The same commands in PowerShell, cmd, bash or zsh:
 
 ```bash
-cp bff/.env.example bff/.env
+git clone https://github.com/NorceTech/norce-product-vue.git
+cd norce-product-vue
+git checkout storefront
+npm install
+npm run dev
 ```
+
+Open `http://localhost:5173`. `Ctrl+C` stops it.
+
+The repository holds two npm packages, `bff/` and `productpage-vue/`, and the
+`package.json` in the root only drives them: `npm install` there installs both,
+and `npm run dev` starts both in one terminal — the BFF on port 3000, the
+frontend on 5173. With no `bff/.env` yet, it sets `MOCK_DATA=true` for that run
+and says so. Once `bff/.env` exists, that file decides; see
+[Configuration](#configuration).
+
+### One terminal per package
+
+`npm run dev` in the root does what these two terminals do, after `npm install`
+in the root:
 
 **Terminal 1 — BFF:**
 ```bash
 cd bff
-npm install
 npm run dev
 ```
+
+Started like this, the BFF does not pick the fixtures for you: without
+`bff/.env` it says what is missing and stops. Create the file first, as under
+[Configuration](#configuration); the example ships with `MOCK_DATA=true`.
 
 `npm run dev` runs the BFF under `node --watch`, so editing `index.js` reloads
 it — no manual restart. (`npm start` runs it without watching.)
@@ -68,11 +98,8 @@ startup — `productpage-vue/.env` and `bff/.env`.
 **Terminal 2 — Frontend:**
 ```bash
 cd productpage-vue
-npm install
 npm run dev
 ```
-
-Open `http://localhost:5173`.
 
 TypeScript is checked with `vue-tsc`, not just transpiled away. `npm run build`
 runs the check first; to check without building:
@@ -82,7 +109,7 @@ cd productpage-vue
 npm run typecheck
 ```
 
-### Option B: Using `run.ps1` (Windows PowerShell)
+### `run.ps1` (Windows PowerShell)
 
 ```powershell
 .\run.ps1
@@ -144,6 +171,13 @@ cp bff/.env.example bff/.env
 cp productpage-vue/.env.example productpage-vue/.env
 ```
 
+That is bash and PowerShell. cmd has no `cp`, and wants backslashes:
+
+```bat
+copy bff\.env.example bff\.env
+copy productpage-vue\.env.example productpage-vue\.env
+```
+
 Both `.env` files are gitignored.
 
 ### BFF (`bff/.env`)
@@ -167,8 +201,9 @@ and they are easy to confuse:
 
 - `bff/.env.example` ships with `MOCK_DATA=true`, so copying it gives you the
   fixtures until you change that line.
-- With no `bff/.env` at all, `run.ps1` sets `MOCK_DATA=true` for that run and
-  says so, which is what keeps a fresh clone working.
+- With no `bff/.env` at all, `npm run dev` in the root and `run.ps1` set
+  `MOCK_DATA=true` for that run and say so, which is what keeps a fresh clone
+  working. `npm run dev` in `bff/` does not.
 - `run.ps1 -Mock` sets it to `true` for that run, whatever `bff/.env` says.
 - Naming a tenant or a host (`-a`, `-s`, `-e`) sets it to `false` instead.
 
@@ -224,15 +259,68 @@ else looks fine.
 |---|---|---|
 | `GET /api/products` | `ListProducts2` | `productlist.json` |
 | `GET /api/productfilters` | `ListProductFilters2` | `productfilters.json` |
+| `GET /api/productpage/:uniqueName` | `GetProductByUniqueName`, `ListPromotionsByProductUniqueName` and `ListFlags` in parallel, then `ListProductRelations` | the four below |
 | `GET /api/product/:uniqueName` | `GetProductByUniqueName` | `product.json` |
 | `GET /api/relations/:productId` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName` | `ListPromotionsByProductUniqueName` | `promos.json` |
 | `GET /api/flags` | `ListFlags` | `flags.json` |
+| `GET /api/uniquename/:productId` | `GetProduct` | `product.json` |
 | `GET /api/application` | `GetApplication` (Metadata) | `cultures.json` |
 
-`/api/application` returns `{ Id, Name, Url, Cultures }`. It used to be
-`/api/cultures` and threw away everything but the culture list — including
-`Name`, which is the storefront's own title and is what the header shows.
+`/api/productpage` is what the product page calls. It returns
+`{ product, promotions, relations, flags, errors }`: only the product decides
+whether there is a page, so a failed promotions, relations or flags call becomes
+an empty list and an entry in `errors` rather than a failed request. The four
+single-call routes below it make the same Norce calls one at a time; the
+frontend no longer uses them, and they stay while the lessons still point at
+them.
+
+`/api/uniquename/:productId` returns `{ uniqueName }`, the product's unique name
+in the requested culture. Unique names are per culture, and
+`GetProductByUniqueName` finds a name only in its own culture or when it is the
+product's default name, so a language switch on the product page cannot ask for
+the same name again. It asks for the new name by `Id`, which is the same in
+every culture, and moves there. Page loads still go by unique name.
+
+`/api/application` returns `{ Id, Name, Url, ClientId, ClientName, Cultures,
+PrimaryCulture }`. It used to be `/api/cultures` and threw away everything but
+the culture list — including `Name`, which is the storefront's own title and is
+what the header shows. `PrimaryCulture` is what `GetApplication` calls
+`Cultures.Default`; an address without a culture is sent there.
+
+
+## What the sample simplifies
+
+The BFF is kept small enough to read in one sitting, and that costs four
+shortcuts a production storefront should not take:
+
+- **No entity mapping.** Norce's objects reach the browser as they are; only
+  `GetApplication` is trimmed, and the cost fields below are taken out. A real
+  storefront maps each answer to the subset its pages use, and caches the
+  mapped object.
+- **One cache, one retention.** Everything sits in one in-process cache for an
+  hour. A real storefront caches in groups — master data such as flags and
+  cultures for about a day, product data for about an hour, prices and stock for
+  minutes — and usually in a shared store such as Redis.
+- **One root category, no category navigation.** The catalogue is scoped to
+  `CATEGORY_SEED` from `bff/.env`. A real storefront builds its navigation from
+  the category tree.
+- **Cache keys without customer or price list.** There is no customer pricing,
+  so the keys carry only what varies here, such as the product and the
+  culture. A real storefront with customer prices puts the price list in every
+  key it caches a price under.
+
+The Storefront Architecture module explains each of these.
+
+**What the BFF does take out: cost.** Norce returns what an item costs
+the merchant next to what it sells for. On a product, `CostPurchase` and
+`CostUnit` are "included for margin calculations", and every variant carries
+its own pair; a basket row has the same two as `Cost` and `CostUnit`. Passed
+through, they would put the purchase cost in every visitor's browser, so the
+BFF strips them: `withoutCosts` from the product and its variants, in mock mode
+too, and `basketWithoutCosts` from each basket row. The product list,
+relations, promotions and flags carry no cost fields. A storefront that maps
+its entities gets this for free, by never mapping the costs in.
 
 
 ## Demo theme (not part of the lessons)

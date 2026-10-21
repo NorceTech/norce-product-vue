@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useCulture } from '@/composables/useCulture';
 
 interface Culture {
@@ -12,11 +13,16 @@ const props = defineProps<{
   cultures: Culture[];
 }>();
 
-const { culture, updateCulture } = useCulture();
+const { culture } = useCulture();
+const router = useRouter();
 
+// Choosing a language is a navigation: the same page under another culture.
+// The router then sets the culture from the address. A push, not a replace, so
+// Back returns to the page in the language it was in. The product page moves on
+// to its unique name in the new language by itself - see ProductPage.vue.
 const selectedCultureCode = computed({
   get: () => culture.value,
-  set: (val) => updateCulture(val)
+  set: (val) => router.push({ params: { culture: val } })
 });
 </script>
 
