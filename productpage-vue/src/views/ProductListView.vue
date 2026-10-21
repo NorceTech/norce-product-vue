@@ -445,14 +445,21 @@ function buildQueryParams(): Record<string, string> {
   return params;
 }
 
+// A language switch keeps this view (see the RouterView key in App.vue), so a
+// request in the old language can still be on its way when the new one has
+// answered. Its answer is dropped instead of overwriting the new language.
 async function fetchProducts() {
+  const culture = globalCulture.value;
   const response = await api.getProducts(buildQueryParams());
+  if (culture !== globalCulture.value) return;
   products.value = response.data.Items ?? [];
   itemCount.value = response.data.ItemCount ?? products.value.length;
 }
 
 async function fetchFilters() {
+  const culture = globalCulture.value;
   const response = await api.getProductFilters(buildQueryParams());
+  if (culture !== globalCulture.value) return;
   filters.value = response.data;
 
   // Open the first group once, so the panel does not read as inert on load.

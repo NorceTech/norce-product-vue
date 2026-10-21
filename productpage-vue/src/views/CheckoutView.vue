@@ -214,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { inject, ref, watch, Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useBasket } from '@/composables/useBasket'
@@ -295,13 +295,32 @@ function fillDummyAddress() {
   }
 }
 
+// Every start of the checkout takes a number. A start that finds a newer number
+// after an await has been overtaken - a language switch started over while it
+// was still on its way - and leaves the order to the newer one.
+let latestStart = 0
+// True while completeCheckout places the order, and whether the language changed
+// meanwhile. See the culture watcher.
+let completing = false
+let switchedWhileCompleting = false
+
 async function initCheckout() {
+  const thisStart = ++latestStart
   loading.value = true
   error.value = null
   isComplete.value = false
+  // Forget the previous order first: if starting over fails, its payment must
+  // not stay selectable on the new page, and its failed payment is not the new
+  // order's.
+  orderId.value = null
+  paymentId.value = null
+  paymentMethods.value = []
+  selectedMethod.value = null
+  completeError.value = null
 
   try {
     await loadBasket()
+    if (thisStart !== latestStart) return
     if (!basket.value?.Id) {
       error.value = t('checkout.empty')
       return
@@ -312,10 +331,12 @@ async function initCheckout() {
       culture: culture.value,
       currency: basket.value.CurrencyCode,
     })
+    if (thisStart !== latestStart) return
     const newOrderId: string = orderResponse.data.id
     orderId.value = newOrderId
 
     const paymentResponse = await api.createNonPspPayment(newOrderId)
+    if (thisStart !== latestStart) return
     const newPaymentId: string = paymentResponse.data.paymentId
     paymentId.value = newPaymentId
     paymentMethods.value = paymentResponse.data.paymentMethods ?? []
@@ -327,9 +348,9 @@ async function initCheckout() {
       })
     }
   } catch (err: any) {
-    error.value = getErrorMessage(err, t('checkout.initError'))
+    if (thisStart === latestStart) error.value = getErrorMessage(err, t('checkout.initError'))
   } finally {
-    loading.value = false
+    if (thisStart === latestStart) loading.value = false
   }
 }
 
@@ -357,6 +378,8 @@ async function completeCheckout() {
     return
   }
   try {
+    completing = true
+    switchedWhileCompleting = false
     loading.value = true
     await api.updateCheckoutBilling(orderId.value, billing.value)
     const shippingPayload = shippingDifferent.value ? { ...shipping.value } : { ...billing.value }
@@ -369,7 +392,15 @@ async function completeCheckout() {
   } catch (err: any) {
     completeError.value = getErrorMessage(err, t('checkout.completeError'))
   } finally {
+    completing = false
     loading.value = false
+  }
+
+  // The language changed while the order was being placed. A placed order
+  // keeps its confirmation; one that failed starts over in the new language,
+  // so the next attempt does not place an order in the old one.
+  if (switchedWhileCompleting && !isComplete.value) {
+    initCheckout()
   }
 }
 
@@ -411,7 +442,31 @@ function getErrorMessage(err: any, fallback: string) {
   return err?.message || fallback
 }
 
-onMounted(() => {
+// Wait for App.vue to settle the culture, as the other views do. Started on
+// mount, a stored culture the application does not offer went into one NCO
+// order, and App.vue's correction a moment later started a second.
+const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>
+watch(isCultureInitialized, (isInitialized) => {
+  if (isInitialized) initCheckout()
+}, { immediate: true })
+
+// The culture goes into the NCO order when it is initiated, so a language
+// switch starts the checkout over. App.vue keys RouterView on the path, not the
+// culture, so this view is kept on a switch and has to do that itself.
+//
+// Not once the order is placed: the confirmation belongs to the order that was
+// paid. Not while it is being placed either, since starting over under a
+// payment on its way would swap the order it confirms - completeCheckout starts
+// over afterwards instead, if the payment failed.
+watch(culture, () => {
+  // No start yet: the first one will use the new culture anyway. This is
+  // App.vue replacing a stored culture just before it lets the first start go.
+  if (latestStart === 0) return
+  if (isComplete.value) return
+  if (completing) {
+    switchedWhileCompleting = true
+    return
+  }
   initCheckout()
 })
 </script>

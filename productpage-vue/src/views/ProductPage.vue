@@ -600,9 +600,11 @@ function setFacet(code: string, key: string) {
 }
 
 import api from '@/services/api';
+import { useRouter } from 'vue-router'
 import { useBasket } from '@/composables/useBasket'
 import type { BasketItem } from '@/types'
 
+const router = useRouter();
 const globalCulture = inject('culture') as Ref<string>; 
 const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>; 
 const { addItem } = useBasket()
@@ -634,6 +636,9 @@ async function fetchProductData() {
 
     const firstBuyable = p?.Variants?.find((v:any) => v.StatusId === 1 && v.IsBuyable && (v.Price ?? 0) > 0) ?? null;
     selectedVariant.value = firstBuyable;
+    // Clear the chips too, or they would still show the previous selection
+    // after a language switch reloads the product.
+    selectedFacet.value = {};
 
   } catch (error: any) {
     errors.push({ context: 'Product', message: error.message });
@@ -644,20 +649,69 @@ async function fetchProductData() {
   }
 }
 
+// The load in progress, or null before the first. A language switch waits for
+// it, because the product's Id - the one thing that is the same in every
+// culture - comes from it.
+let pageLoad: Promise<void> | null = null;
+
+function loadPage() {
+  pageLoad = fetchProductData();
+  return pageLoad;
+}
+
 // Data fetching is deferred until culture is initialized (see watch below)
 watch(isCultureInitialized, async (isInitialized) => {
   if (isInitialized) {
-    await fetchProductData();
+    await loadPage();
   }
 }, { immediate: true }); // Use immediate: true to check on mount
 
 watch(selectedVariant, () => { heroIndex.value = 0; lightboxIndex.value = null })
 
-// Refetch when the user switches language
+// A language switch. Unique names are per culture, so the name in the URL may
+// mean nothing in the new language - see /api/uniquename in bff/index.js. Ask
+// for this product's name in the new culture by its Id, and move there if it
+// differs; the RouterView key in App.vue then builds the page from scratch. The
+// same name in both cultures is the same page, so it only needs the new texts.
+//
+// Every switch takes a number, and leaving the page takes one too. A switch
+// that finds a newer number after an await has been overtaken - by another
+// switch, or by a click to another product - and stops, rather than moving to
+// a name in a language the shopper has already left.
+let latestSwitch = 0;
+onUnmounted(() => { latestSwitch++ });
+
 watch(globalCulture, async (newCulture, oldCulture) => {
-  if (oldCulture) {
-    await fetchProductData();
+  if (!oldCulture) return;
+  // No load yet: the first one will ask in the new culture anyway. This is
+  // App.vue replacing a stored culture the application does not offer, just
+  // before it lets the first load start.
+  if (!pageLoad) return;
+
+  const thisSwitch = ++latestSwitch;
+  // The first load may still be on its way, in the old culture. Asking for the
+  // old name in the new culture instead can find nothing, so wait for the Id.
+  await pageLoad;
+  if (thisSwitch !== latestSwitch) return;
+  if (!product.value) return loadPage();
+
+  try {
+    const { uniqueName } = await api.getUniqueName(product.value.Id).then(r => r.data);
+    if (thisSwitch !== latestSwitch) return;
+    if (uniqueName !== props.uniqueName) {
+      // replace, not push: Back should not lead to the old name, which this
+      // culture does not know.
+      await router.replace({ name: 'ProductPage', params: { uniqueName } });
+      return;
+    }
+  } catch (error: any) {
+    if (thisSwitch === latestSwitch) {
+      debugPopup?.show([{ context: 'Product', message: error.message }]);
+    }
+    return;
   }
+
+  await loadPage();
 });
 
 provide('product', currentItem)
