@@ -593,26 +593,18 @@ function handleAddToBasket() {
 }
 
 async function fetchProductData() {
-  const errors = [];
+  const errors: { context: string; message: string }[] = [];
   try {
-    const p = await api.getProduct(props.uniqueName).then(r => r.data);
+    // One call. Which Norce calls run in parallel is the BFF's business, not
+    // the browser's. A failed promotions, relations or flags call does not fail
+    // the page: the BFF sends an empty list and names it in `errors`.
+    const page = await api.getProductPage(props.uniqueName).then(r => r.data);
+    const p = page.product;
     product.value = p;
-
-    // Record the failure and fall back to an empty list. Returning
-    // errors.push(...) here would assign the array *length* to the ref.
-    const onFail = (context: string) => (e: any) => {
-      errors.push({ context, message: e.message });
-      return [];
-    };
-
-    const [pro, rel, fl] = await Promise.all([
-      api.getPromos(props.uniqueName).then(r => r.data).catch(onFail('Promos')),
-      api.getRelations(p.Id).then(r => r.data).catch(onFail('Relations')),
-      api.getFlags().then(r => r.data).catch(onFail('Flags'))
-    ]);
-    promotions.value = pro ?? [];
-    relations.value = rel ?? [];
-    flags.value = fl ?? [];
+    promotions.value = page.promotions ?? [];
+    relations.value = page.relations ?? [];
+    flags.value = page.flags ?? [];
+    errors.push(...(page.errors ?? []));
 
     const firstBuyable = p?.Variants?.find((v:any) => v.StatusId === 1 && v.IsBuyable && (v.Price ?? 0) > 0) ?? null;
     selectedVariant.value = firstBuyable;

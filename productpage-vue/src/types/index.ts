@@ -4,3 +4,4 @@ export type { RelationGroup, RelationMetadata, RelatedProduct } from './Relation
 export type { Flag } from './Flag'
 export type { Basket, BasketItem, BasketSummary, BasketAmount } from './Basket'
 export type { Theme } from './Theme'
+export type { ProductPageData } from './ProductPageData'

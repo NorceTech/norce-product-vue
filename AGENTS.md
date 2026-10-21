@@ -36,6 +36,7 @@ Dependency bumps follow the same rule. `.github/dependabot.yml` sends version up
 |---|---|---|
 | `GET /api/products?culture=xx` | `ListProducts2` | `productlist.json` |
 | `GET /api/productfilters?culture=xx` | `ListProductFilters2` | `productfilters.json` |
+| `GET /api/productpage/:uniqueName?culture=xx` | `GetProductByUniqueName`, `ListPromotionsByProductUniqueName`, `ListFlags` in parallel, then `ListProductRelations` | the four below |
 | `GET /api/product/:uniqueName?culture=xx` | `GetProductByUniqueName` | `product.json` |
 | `GET /api/relations/:productId?culture=xx` | `ListProductRelations` | `relations.json` |
 | `GET /api/promos/:uniqueName?culture=xx` | `ListPromotionsByProductUniqueName` | `promos.json` |
@@ -46,6 +47,23 @@ Dependency bumps follow the same rule. `.github/dependabot.yml` sends version up
 | `POST /api/basket/:basketId/items` | `InsertBasketItem` | in-memory |
 | `PUT /api/basket/:basketId/items/:itemId` | `UpdateBasketItem` | in-memory |
 | `DELETE /api/basket/:basketId/items/:lineNo` | `DeleteBasketItem` | in-memory |
+
+The product page makes one call, `/api/productpage`. The BFF composes it from `getProduct`,
+`getPromos` and `getFlags` in parallel, then `getRelations` on the product's `Id` — one function per
+Norce call, each with its own mock branch, so mock and live run the same orchestration. Keep the
+composition in the BFF: a product page that sequences Norce calls from the browser is the pattern
+the Storefront Architecture module warns against. Promotions, flags and relations degrade to `[]`
+and are named in `errors`; only the product can fail the request. `GetProductByUniqueName` answers
+an unknown name with 200 and `null`, not 404, so the endpoint checks for `null` itself. The four
+functions take an optional `timeout` that goes on to `fetchData`, which applies it to the token
+request too. Only `/api/productpage` passes one, `pageCallTimeout` (4 s): a cold token and two
+rounds of reads stay under the browser's 15 s, so a hanging extra fails inside that instead of
+holding the product. The single-call routes, the product list and the metadata reads make one
+round and pass no timeout, so they keep the browser's full 15 s.
+
+The four single-call routes below it are no longer used by the frontend. They stay because lessons
+name them (the endpoint table in *Fetching Product Data*, the `/api/product/any-name` exercise in
+*Storefront Architecture*), and are removed together with that lesson change, not before.
 
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
@@ -60,6 +78,7 @@ choosing those is checkout's job.
 - **Price fields differ per service** — the Product Service returns `Price` (ex VAT) and `PriceIncVat`. Do not mix inc/ex VAT fields in one fallback chain.
 - **Money formatting** — use `formatMoney()` from `useHelpers`; the selected culture decides the format, never a hard-coded locale.
 - **Types are enforced** — `npm run typecheck` (`vue-tsc --noEmit`) must pass; `npm run build` runs it first.
+- **Costs never reach the browser** — products and baskets pass through unmapped, except the merchant's costs: `withoutCosts()` drops `CostPurchase` and `CostUnit` from a product and each of its variants, `basketWithoutCosts()` drops `Cost` and `CostUnit` from basket rows. A new route that returns a product or a basket goes through them.
 - **CSS** — plain CSS in separate `.css` files imported by components, plus a global `style.css`.
 - **TypeScript types** — interfaces live in `src/types/`. Respect these contracts.
 - **Norce filter format** — `key1|val1,val2;key2|val3` (semicolon-separated groups, pipe-separated key/values, comma-separated multi-values). `parf` is the exception: its values join with `*` (AND between parametrics, OR within one), and its tokens are `L<pid>_<valueId>`, `M<pid>_<valueId>` or `V<pid>_<from>-<to>`.
