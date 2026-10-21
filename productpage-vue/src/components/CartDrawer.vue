@@ -12,7 +12,7 @@
         <section v-if="productItems.length" class="cart-items">
           <article v-for="item in productItems" :key="item.LineNo ?? item.Id" class="cart-item">
             <div class="cart-item-main">
-              <div class="cart-item-title">{{ item.Name || item.PartNo }}</div>
+              <div class="cart-item-title">{{ decodeEntities(item.Name) || item.PartNo }}</div>
               <div class="cart-item-meta">{{ item.PartNo }}</div>
             </div>
             <div class="cart-item-controls">
@@ -72,7 +72,7 @@
 import { ref, watch, nextTick, onUnmounted } from 'vue'
 import { useBasket } from '@/composables/useBasket'
 import { useCulture } from '@/composables/useCulture'
-import { formatMoney } from '@/composables/useHelpers'
+import { formatMoney, decodeEntities } from '@/composables/useHelpers'
 import type { BasketItem } from '@/types'
 
 const {

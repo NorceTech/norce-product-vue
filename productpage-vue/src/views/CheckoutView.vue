@@ -24,7 +24,7 @@
         <!-- Product rows only; fee rows are listed with the totals below. -->
         <div v-for="item in productItems" :key="item.LineNo ?? item.Id" class="checkout-item">
           <div>
-            <div class="checkout-item-name">{{ item.Name || item.PartNo }}</div>
+            <div class="checkout-item-name">{{ decodeEntities(item.Name) || item.PartNo }}</div>
             <div class="checkout-item-meta">{{ item.PartNo }}</div>
           </div>
           <div class="checkout-item-qty">x{{ item.Quantity }}</div>
@@ -219,7 +219,7 @@ import { useI18n } from 'vue-i18n'
 import api from '@/services/api'
 import { useBasket } from '@/composables/useBasket'
 import { useCulture } from '@/composables/useCulture'
-import { formatMoney } from '@/composables/useHelpers'
+import { formatMoney, decodeEntities } from '@/composables/useHelpers'
 
 type PaymentMethod = { identifier: string }
 

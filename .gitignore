@@ -102,3 +102,8 @@ productpage-vue.log
 !.env.example
 node_modules/
 dist/
+
+# The root package.json only installs and starts bff/ and productpage-vue/ and
+# has no dependencies of its own, so its lockfile records nothing. Each package
+# keeps its own lockfile.
+/package-lock.json

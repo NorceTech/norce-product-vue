@@ -1,0 +1,25 @@
+# Version updates go to storefront, the base branch, and reach main through the
+# usual merge forward (AGENTS.md, Branches). GitHub reads this file from the
+# default branch, so it takes effect once it is on main.
+#
+# Security updates are not covered by target-branch: GitHub always raises them
+# against the default branch, main. When one arrives, make the same bump on
+# storefront, merge it forward, and close the Dependabot pull request.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /bff
+      - /productpage-vue
+    target-branch: storefront
+    schedule:
+      interval: monthly
+    # A major version can raise the Node.js minimum or change what the lessons
+    # show, so those are taken by hand.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    # One pull request per package per month rather than one per dependency.
+    groups:
+      npm:
+        patterns: ["*"]
