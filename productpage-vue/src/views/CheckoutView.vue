@@ -310,11 +310,13 @@ async function initCheckout() {
   error.value = null
   isComplete.value = false
   // Forget the previous order first: if starting over fails, its payment must
-  // not stay selectable on the new page.
+  // not stay selectable on the new page, and its failed payment is not the new
+  // order's.
   orderId.value = null
   paymentId.value = null
   paymentMethods.value = []
   selectedMethod.value = null
+  completeError.value = null
 
   try {
     await loadBasket()
