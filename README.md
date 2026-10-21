@@ -278,7 +278,7 @@ One more sits outside the BFF: **the culture is not in the URL.** It is kept in
 the browser, and unique names differ per culture, so a product link opened in
 another language than it was made in — shared, bookmarked, or reached with Back
 after a language switch — finds nothing. A real storefront puts the culture in
-the path, such as `/sv-se/product/…`, and so always knows which culture a name
+the path, such as `/sv-SE/product/…`, and so always knows which culture a name
 belongs to.
 
 
