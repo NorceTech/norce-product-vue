@@ -51,7 +51,10 @@
 
 /* Inlined VariantSelector styles */
 .vs { padding: .5rem 0 0; }
-.vs__title { font-size: 1rem; margin: 0 0 .5rem; }
+.vs__head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+.vs__title { font-size: 1rem; margin: 0; }
+.vs__clear { border: 0; background: none; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font-size: .9rem; }
+.vs__hint { font-size: .9rem; color: #666; margin: .25rem 0 0; }
 .vs__row { display: grid; grid-template-columns: 140px 1fr; align-items: start; gap: .5rem; margin-bottom: .5rem; }
 .vs__label { font-weight: 600; line-height: 2rem; }
 .vs__chips { display: flex; flex-wrap: wrap; gap: .4rem; }

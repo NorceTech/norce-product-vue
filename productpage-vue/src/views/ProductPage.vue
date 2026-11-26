@@ -23,7 +23,9 @@
           <section class="card product-info" style="min-width:260px">
           <h1>{{ decodeEntities(currentItem?.Name) }}</h1>
           <p class="subtitle">{{ currentItem?.SubHeader }}</p>
-          <p class="text-sm mb-1">{{ $t('productPage.partNumber') }} {{ currentItem?.PartNo }}</p>
+          <!-- None while the chips leave a facet open: by a variant's name the root
+               carries that variant's PartNo, not one the chips show. -->
+          <p v-if="!choiceOpen" class="text-sm mb-1">{{ $t('productPage.partNumber') }} {{ currentItem?.PartNo }}</p>
 
           <div class="flag-wrap">
             <span
@@ -63,7 +65,7 @@
             {{ $t('productPage.nextDelivery') }} {{ parseNorcedate(currentItem?.OnHand?.NextDeliveryDate, globalCulture) }}
           </p>
 
-          <button class="btn primary mt-2" @click="handleAddToBasket" :disabled="!currentItem?.IsBuyable">
+          <button class="btn primary mt-2" @click="handleAddToBasket" :disabled="!currentItem?.IsBuyable || choiceOpen">
             {{ $t('productPage.addToBasket') }}
           </button>
         </section>
@@ -73,7 +75,13 @@
         <!-- Variant selector: faceted parametrics let the user pick Color, Size, etc.
              Hidden entirely unless there is a real choice - see hasVariantChoice. -->
         <section v-if="hasVariantChoice" class="vs mt-4">
-          <h3 class="vs__title">{{ $t('productPage.chooseVariant') }}</h3>
+          <div class="vs__head">
+            <h3 class="vs__title">{{ $t('productPage.chooseVariant') }}</h3>
+            <!-- The way from one variant to any other: see rule 2 in variantSelection.ts. -->
+            <button v-if="Object.keys(selection.choices).length" type="button" class="vs__clear" @click="clearChoices">
+              {{ $t('productPage.clearChoices') }}
+            </button>
+          </div>
 
           <div v-for="f in variantFacets" :key="f.code" class="vs__row">
             <div class="vs__label">{{ f.name }}</div>
@@ -82,12 +90,13 @@
               <button
                   v-for="v in f.values" :key="v.key"
                   class="vs__chip"
-                  :class="{ 'is-active': (selectedFacet?.[f.code]===v.key) }"
-                  :disabled="availableFacetValues && availableFacetValues[f.code] && !availableFacetValues[f.code].has(v.key)"
+                  :class="{ 'is-active': selection.choices[f.code] === v.key }"
+                  :disabled="!canChoose(variants, selection, f.code, v.key)"
                   @click="setFacet(f.code, v.key)"
               >{{ v.name }}</button>
             </div>
           </div>
+          <p v-if="choiceOpen" class="vs__hint">{{ $t('productPage.chooseRemaining') }}</p>
         </section>
       </div>
 
@@ -255,11 +264,16 @@ import {cdnImg, getAlt, parseNorcedate, showFlag, fileUrl, formatMoney, decodeEn
 
 
 import type { Product, Promotion, RelationGroup, Flag } from '@/types'
+import {
+  canChoose, choose, clearSelection, facetCode, startSelection, valueKey, variantNamedBy, type Selection,
+} from '@/lib/variantSelection'
 
 type DebugPopup = { show: (errors: { context: string; message: string }[]) => void }
 
 const product = ref<Product | null>(null)
-const selectedVariant = ref<Product | null>(null)
+// The chips that are on and the variant they name - see variantSelection.ts.
+const selection = ref<Selection<Product>>({ choices: {}, variant: null })
+const selectedVariant = computed(() => selection.value.variant)
 const promotions = ref<Promotion[]>([])
 const relations = ref<RelationGroup[]>([])
 const flags = ref<Flag[]>([])
@@ -482,11 +496,11 @@ const variantFacets = computed<VariantFacet[]>(() => {
   const buckets = new Map<string, VariantFacet>()
   vs.forEach(v => {
     (v.VariantParametrics ?? []).forEach((pm: any) => {
-      const code = pm.Code || pm.Name
+      const code = facetCode(pm)
       if (!code) return
       if (!buckets.has(code)) buckets.set(code, { code, name: pm.Name ?? code, values: [] })
       const bucket = buckets.get(code)!
-      const key = String(pm.ValueKey ?? pm.Value ?? pm.ValueId ?? pm.ValueCode ?? '')
+      const key = valueKey(pm)
       const name = String(pm.ValueName ?? pm.Value ?? key)
       if (key && !bucket.values.find(x => x.key === key)) bucket.values.push({ key, name })
     })
@@ -510,80 +524,17 @@ const hasVariantChoice = computed(() => {
   return variantFacets.value.some(f => f.values.length > 1)
 })
 
-// A variant in the chips' terms: facet code to value key, read the same way as
-// variantFacets above.
-function facetsOf(variant: any): Record<string, string> {
-  const facets: Record<string, string> = {}
-  ;(variant?.VariantParametrics ?? []).forEach((pm: any) => {
-    const code = pm.Code || pm.Name
-    const key  = String(pm.ValueKey ?? pm.Value ?? pm.ValueId ?? pm.ValueCode ?? '')
-    if (code && key) facets[code] = key
-  })
-  return facets
+const variants = computed<Product[]>(() => product.value?.Variants ?? [])
+
+// The chips leave a facet open: no variant is selected, so nothing can be added.
+const choiceOpen = computed(() => variants.value.length > 0 && !selection.value.variant)
+
+function setFacet(code: string, key: string) {
+  selection.value = choose(variants.value, selection.value, code, key)
 }
 
-// Only buyable variants can be chosen: StatusId=1 (Active), IsBuyable=true, Price > 0.
-const buyableVariants = computed(() => (product.value?.Variants ?? []).filter(v =>
-    v.StatusId === 1 && v.IsBuyable === true && (v.Price ?? 0) > 0
-))
-
-// The selected variant is the only selection state, and the chips are read
-// from it. Kept as a second ref, the chips started empty while a variant was
-// already selected - the one the address named, or the first buyable one - and
-// the first click then matched on that one facet alone and could swap the
-// others: a link to green/L, then XL, gave black/XL although green/XL existed.
-const selectedFacet = computed(() => facetsOf(selectedVariant.value))
-
-// A value can be chosen when some buyable variant has it. Not only those that
-// combine with the current choice: setFacet then moves the other facets, rather
-// than leaving the shopper unable to reach a color the current size lacks.
-const availableFacetValues = computed(() => {
-  // Every row gets a set, empty when no buyable variant has the facet: the
-  // template disables a chip only when its row has an entry.
-  const result: Record<string, Set<string>> = Object.fromEntries(variantFacets.value.map(f => [f.code, new Set<string>()]))
-  buyableVariants.value.forEach(v => {
-    Object.entries(facetsOf(v)).forEach(([code, key]) => (result[code] ??= new Set()).add(key))
-  })
-  return result
-})
-
-// The facets the shopper has clicked on this page, the latest first. Not a
-// selection - that is the variant - but which choices to keep when a click
-// cannot keep them all.
-const clickedFacets = ref<string[]>([])
-
-// A click changes one facet and keeps the others when a buyable variant has that
-// combination. When none has, the facet the shopper chose last is kept first,
-// then the one before it, and the facets never clicked last of all, in the
-// order the chips show them. Counting kept facets instead could leave a variant
-// unreachable when combinations are sparse: with black/S/matte, black/L/gloss,
-// white/S/gloss and white/L/matte, White then L gave black/L/gloss, a tie on
-// one kept facet that the first in the list won. Ranked by the latest choice,
-// clicking a variant's values once each, in any order, always ends on it.
-function setFacet(code: string, key: string) {
-  const current = selectedFacet.value
-  clickedFacets.value = [code, ...clickedFacets.value.filter(c => c !== code)]
-  // The selected variant already has this value and can be bought: nothing to
-  // change. Otherwise another variant that ties with it could replace it, the
-  // one linked to. A linked variant that cannot be bought moves on, to a
-  // buyable one with the value.
-  const selectedPartNo = selectedVariant.value?.PartNo
-  if (current[code] === key && buyableVariants.value.some(v => v.PartNo === selectedPartNo)) return
-  const keepFirst = [
-    ...clickedFacets.value.slice(1),
-    ...variantFacets.value.map(f => f.code).filter(c => !clickedFacets.value.includes(c)),
-  ]
-  // 1 where the variant keeps that facet's current value, in keepFirst order. A
-  // facet the current variant has no value for has nothing to keep, so it
-  // counts for no candidate - otherwise two missing values would count as kept.
-  const kept = (v: any) => keepFirst.map(c => current[c] !== undefined && facetsOf(v)[c] === current[c] ? 1 : 0)
-  const better = (a: number[], b: number[]) => {
-    const i = a.findIndex((x, n) => x !== b[n])
-    return i !== -1 && a[i] > b[i]
-  }
-  const candidates = buyableVariants.value.filter(v => facetsOf(v)[code] === key)
-  if (!candidates.length) return
-  selectedVariant.value = candidates.reduce((best, v) => better(kept(v), kept(best)) ? v : best)
+function clearChoices() {
+  selection.value = clearSelection(variants.value)
 }
 
 import api from '@/services/api';
@@ -604,23 +555,6 @@ function handleAddToBasket() {
     PartNo: currentItem.value.PartNo,
     Quantity: 1,
   } as BasketItem)
-}
-
-// The variant whose own unique name this is, or null when the name is the
-// product's shared one. Norce compares unique names case-insensitively.
-//
-// Not the root's PartNo or Id. GetProductByUniqueName also finds a name by the
-// product's default name, the one without a culture, and answers in the
-// requested culture. For such a name the root's PartNo is set even when it is
-// the shared name (Open Demo, sv-SE: the English jacket name gives PartNo
-// 100001), and for a variant's default name the root is the cheapest variant,
-// not the one named. So the answer itself cannot say which variant such a link
-// meant, and the page starts it on the first buyable variant like a shared
-// name. The page's own links and the language switch always use the name in
-// the address's culture, which this does match.
-function variantNamedBy(uniqueName: string) {
-  const name = uniqueName.toLowerCase();
-  return product.value?.Variants?.find((v:any) => v.UniqueName?.toLowerCase() === name) ?? null;
 }
 
 // Resolves to false only when the product page answered 404: the name in the
@@ -644,10 +578,8 @@ async function fetchProductData() {
     // variant (that variant's own unique name). Both find the same product, so
     // the variant the address named is the one in Variants with that name. Only
     // an address that names the whole product starts on the first buyable one.
-    const firstBuyable = p?.Variants?.find((v:any) => v.StatusId === 1 && v.IsBuyable && (v.Price ?? 0) > 0) ?? null;
-    // The chips follow, since they are read from the selected variant.
-    selectedVariant.value = variantNamedBy(props.uniqueName) ?? firstBuyable;
-    clickedFacets.value = [];
+    // The chips start on that variant's values.
+    selection.value = startSelection(p?.Variants ?? [], props.uniqueName);
 
   } catch (error: any) {
     exists = error.response?.status !== 404;
@@ -715,7 +647,7 @@ watch(() => props.culture, async () => {
   try {
     // An address that named a variant asks for that variant's name in the new
     // culture, so the switch keeps the variant. Otherwise the product's.
-    const named = variantNamedBy(props.uniqueName);
+    const named = variantNamedBy(variants.value, props.uniqueName);
     const { uniqueName } = await (named
       ? api.getUniqueName(named.Id, { variant: true })
       : api.getUniqueName(product.value.Id)).then(r => r.data);

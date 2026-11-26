@@ -17,6 +17,8 @@
     "backToList": "Tillbaka till produktlistan",
     "description": "Beskrivning",
     "chooseVariant": "Välj variant",
+    "clearChoices": "Rensa val",
+    "chooseRemaining": "Välj ett värde i varje återstående rad för att lägga den i varukorgen.",
     "relatedProducts": "Relaterade produkter",
     "from": "Från",
     "partNumber": "Artikelnummer:",

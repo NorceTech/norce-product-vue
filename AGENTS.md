@@ -85,10 +85,14 @@ variant. The root's `UniqueName` is always the shared name, whichever `Id` was a
 by the product's default name in another culture is found too, but neither the answer's names nor
 its root say which variant it meant, so it opens like the shared name — see `variantNamedBy`.
 
-**The selected variant is the page's only selection state.** The variant chips are read from it
-(`selectedFacet`), and a click picks the buyable variant that keeps the other chips when one exists.
-A second, separately kept chip state started empty next to a preselected variant, and the first
-click could then swap the facets the shopper had not touched.
+**The variant chips are pure functions in `src/lib/variantSelection.ts`, with a unit test per rule.**
+The state is the chips that are on and the variant they name. A chip can be clicked only when a
+buyable variant has its value together with every other chip that is on, so a click never moves
+another chip and the page never shows a variant other than the chips do. On a sparse catalog that
+can leave no single click from one variant to another; **Clear selection** is the way there. Keep
+the rules in that file's header, and change a rule there and in its test, never by ranking
+candidates in the page: every ranking tried on PEX-884 left some variant unreachable or moved a
+chip the shopper had not clicked.
 
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
@@ -103,6 +107,7 @@ choosing those is checkout's job.
 - **Price fields differ per service** — the Product Service returns `Price` (ex VAT) and `PriceIncVat`. Do not mix inc/ex VAT fields in one fallback chain.
 - **Money formatting** — use `formatMoney()` from `useHelpers`; the selected culture decides the format, never a hard-coded locale.
 - **Types are enforced** — `npm run typecheck` (`vue-tsc --noEmit`) must pass; `npm run build` runs it first.
+- **`npm test` in `productpage-vue/`** runs the Vitest unit tests (`src/**/*.test.ts`). Only pure modules have them; there is no component test setup.
 - **Costs never reach the browser** — products and baskets pass through unmapped, except the merchant's costs: `withoutCosts()` drops `CostPurchase` and `CostUnit` from a product and each of its variants, `basketWithoutCosts()` drops `Cost` and `CostUnit` from basket rows. A new route that returns a product or a basket goes through them.
 - **CSS** — plain CSS in separate `.css` files imported by components, plus a global `style.css`.
 - **TypeScript types** — interfaces live in `src/types/`. Respect these contracts.
