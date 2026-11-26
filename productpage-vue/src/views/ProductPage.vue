@@ -538,7 +538,9 @@ const selectedFacet = computed(() => facetsOf(selectedVariant.value))
 // combine with the current choice: setFacet then moves the other facets, rather
 // than leaving the shopper unable to reach a color the current size lacks.
 const availableFacetValues = computed(() => {
-  const result: Record<string, Set<string>> = {}
+  // Every row gets a set, empty when no buyable variant has the facet: the
+  // template disables a chip only when its row has an entry.
+  const result: Record<string, Set<string>> = Object.fromEntries(variantFacets.value.map(f => [f.code, new Set<string>()]))
   buyableVariants.value.forEach(v => {
     Object.entries(facetsOf(v)).forEach(([code, key]) => (result[code] ??= new Set()).add(key))
   })
