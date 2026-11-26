@@ -563,9 +563,12 @@ const clickedFacets = ref<string[]>([])
 function setFacet(code: string, key: string) {
   const current = selectedFacet.value
   clickedFacets.value = [code, ...clickedFacets.value.filter(c => c !== code)]
-  // The selected variant already has this value: nothing to change. Otherwise
-  // another variant that ties with it could replace it, the one linked to.
-  if (current[code] === key) return
+  // The selected variant already has this value and can be bought: nothing to
+  // change. Otherwise another variant that ties with it could replace it, the
+  // one linked to. A linked variant that cannot be bought moves on, to a
+  // buyable one with the value.
+  const selectedPartNo = selectedVariant.value?.PartNo
+  if (current[code] === key && buyableVariants.value.some(v => v.PartNo === selectedPartNo)) return
   const keepFirst = [
     ...clickedFacets.value.slice(1),
     ...variantFacets.value.map(f => f.code).filter(c => !clickedFacets.value.includes(c)),
