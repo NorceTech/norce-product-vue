@@ -74,6 +74,15 @@ every culture, gets the name back from `GetProduct` and `router.replace`s to it.
 by unique name, as the lessons teach. Back and Forward across a switch need no lookup: the culture
 is in the address, so each entry says which culture its name belongs to.
 
+**An address names either the whole product or one variant.** The product's shared unique name and
+a variant's own unique name both find the same product. The product page selects the variant in
+`Variants` whose `UniqueName` is the address, and starts on the first buyable variant only when the
+address is the shared name. Read the variant from `Variants`, not from the root: by a variant's
+name the root carries that variant's `PartNo`, but its price and stock are still the whole
+product's (PEX-870, PROD-7699). A language switch on such a page sends the variant's `Id` with
+`variant=true`, and `/api/uniquename` answers with the variant's name, so the switch keeps the
+variant. The root's `UniqueName` is always the shared name, whichever `Id` was asked for.
+
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
 pattern to copy into a real storefront. `CreateBasket` here sets no payment or delivery method:

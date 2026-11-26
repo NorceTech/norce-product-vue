@@ -601,6 +601,17 @@ function handleAddToBasket() {
   } as BasketItem)
 }
 
+// The variant whose own unique name this is, or null when the name is the
+// product's shared one. Norce compares unique names case-insensitively.
+//
+// Not the root's PartNo: GetProductByUniqueName fills it for a variant's name,
+// but the root's price and stock stay those of the whole product, so the page
+// reads the variant from Variants either way.
+function variantNamedBy(uniqueName: string) {
+  const name = uniqueName.toLowerCase();
+  return product.value?.Variants?.find((v:any) => v.UniqueName?.toLowerCase() === name) ?? null;
+}
+
 // Resolves to false only when the product page answered 404: the name in the
 // address means nothing in this culture. See the language switch below.
 async function fetchProductData() {
@@ -618,8 +629,12 @@ async function fetchProductData() {
     flags.value = page.flags ?? [];
     errors.push(...(page.errors ?? []));
 
+    // An address can name the whole product (its shared unique name) or one
+    // variant (that variant's own unique name). Both find the same product, so
+    // the variant the address named is the one in Variants with that name. Only
+    // an address that names the whole product starts on the first buyable one.
     const firstBuyable = p?.Variants?.find((v:any) => v.StatusId === 1 && v.IsBuyable && (v.Price ?? 0) > 0) ?? null;
-    selectedVariant.value = firstBuyable;
+    selectedVariant.value = variantNamedBy(props.uniqueName) ?? firstBuyable;
     // Clear the chips too, or they would still show the previous selection
     // after a language switch reloads the product.
     selectedFacet.value = {};
@@ -688,7 +703,12 @@ watch(() => props.culture, async () => {
   if (!product.value) return loadPage();
 
   try {
-    const { uniqueName } = await api.getUniqueName(product.value.Id).then(r => r.data);
+    // An address that named a variant asks for that variant's name in the new
+    // culture, so the switch keeps the variant. Otherwise the product's.
+    const named = variantNamedBy(props.uniqueName);
+    const { uniqueName } = await (named
+      ? api.getUniqueName(named.Id, { variant: true })
+      : api.getUniqueName(product.value.Id)).then(r => r.data);
     if (thisSwitch !== latestSwitch) return;
     if (uniqueName !== props.uniqueName) {
       // replace, not push: Back should not lead to the old name, which this

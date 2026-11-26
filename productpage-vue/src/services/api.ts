@@ -65,8 +65,11 @@ export default {
   },
   // The product's unique name in the current culture. Unique names differ per
   // culture and the Id does not, so a language switch goes through the Id.
-  getUniqueName(productId: number) {
-    return apiClient.get<{ uniqueName: string }>(`/uniquename/${productId}`);
+  // `variant: true` asks for that variant's own name rather than the product's.
+  getUniqueName(productId: number, options: { variant?: boolean } = {}) {
+    return apiClient.get<{ uniqueName: string }>(`/uniquename/${productId}`, {
+      params: options.variant ? { variant: true } : undefined,
+    });
   },
   getProducts(params: Record<string, string>) {
     return apiClient.get('/products', { params });

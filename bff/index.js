@@ -417,6 +417,11 @@ app.get('/api/productpage/:uniqueName', async (req, res) => {
 // and null. So a language switch on the product page cannot just ask for the
 // same name again: the page sends the product's Id, which does not change, and
 // moves to the name this returns.
+//
+// ?variant=true asks for the name of the variant with this Id instead. A page
+// reached by a variant's own name keeps that variant across the switch that
+// way. The root's UniqueName is always the product's shared name, whichever
+// variant's Id was asked for, so the variant's name is read from Variants.
 app.get('/api/uniquename/:productId', async (req, res) => {
     try {
         const product = await getProductById(req.params.productId, req.query.culture);
@@ -426,13 +431,16 @@ app.get('/api/uniquename/:productId', async (req, res) => {
             res.status(404).json({ error: 'Product not found' });
             return;
         }
+        const named = req.query.variant === 'true'
+            ? (product.Variants ?? []).find(v => String(v.Id) === req.params.productId) ?? product
+            : product;
         // PIM builds the unique URL from the name, so a product with no name in
         // this culture has no page in it either.
-        if (!product.UniqueName) {
+        if (!named.UniqueName) {
             res.status(404).json({ error: 'Product has no unique name in this culture' });
             return;
         }
-        res.json({ uniqueName: product.UniqueName });
+        res.json({ uniqueName: named.UniqueName });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch product data' });
     }
