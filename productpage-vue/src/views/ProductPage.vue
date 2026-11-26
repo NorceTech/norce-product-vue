@@ -565,8 +565,10 @@ function setFacet(code: string, key: string) {
     ...clickedFacets.value.slice(1),
     ...variantFacets.value.map(f => f.code).filter(c => !clickedFacets.value.includes(c)),
   ]
-  // 1 where the variant keeps that facet's current value, in keepFirst order.
-  const kept = (v: any) => keepFirst.map(c => facetsOf(v)[c] === current[c] ? 1 : 0)
+  // 1 where the variant keeps that facet's current value, in keepFirst order. A
+  // facet the current variant has no value for has nothing to keep, so it
+  // counts for no candidate - otherwise two missing values would count as kept.
+  const kept = (v: any) => keepFirst.map(c => current[c] !== undefined && facetsOf(v)[c] === current[c] ? 1 : 0)
   const better = (a: number[], b: number[]) => {
     const i = a.findIndex((x, n) => x !== b[n])
     return i !== -1 && a[i] > b[i]
