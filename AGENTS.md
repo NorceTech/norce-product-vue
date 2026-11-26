@@ -81,7 +81,14 @@ address is the shared name. Read the variant from `Variants`, not from the root:
 name the root carries that variant's `PartNo`, but its price and stock are still the whole
 product's (PEX-870, PROD-7699). A language switch on such a page sends the variant's `Id` with
 `variant=true`, and `/api/uniquename` answers with the variant's name, so the switch keeps the
-variant. The root's `UniqueName` is always the shared name, whichever `Id` was asked for.
+variant. The root's `UniqueName` is always the shared name, whichever `Id` was asked for. A link
+by the product's default name in another culture is found too, but neither the answer's names nor
+its root say which variant it meant, so it opens like the shared name — see `variantNamedBy`.
+
+**The selected variant is the page's only selection state.** The variant chips are read from it
+(`selectedFacet`), and a click picks the buyable variant that keeps the other chips when one exists.
+A second, separately kept chip state started empty next to a preselected variant, and the first
+click could then swap the facets the shopper had not touched.
 
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong

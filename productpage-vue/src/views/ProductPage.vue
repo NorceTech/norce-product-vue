@@ -510,75 +510,50 @@ const hasVariantChoice = computed(() => {
   return variantFacets.value.some(f => f.values.length > 1)
 })
 
-const selectedFacet = ref<Record<string, string>>({})
-
-// Determine which facet values are still selectable given current selections.
-// Only considers buyable variants: StatusId=1 (Active), IsBuyable=true, Price > 0.
-const availableFacetValues = computed(() => {
-  const vs = (product.value?.Variants ?? []).filter(v =>
-      v.StatusId === 1 && v.IsBuyable === true && (v.Price ?? 0) > 0
-  )
-  const rows = vs.map(v => {
-    const row: Record<string,string> = {}
-    ;(v.VariantParametrics ?? []).forEach((pm: any) => {
-      const code = pm.Code || pm.Name
-      const key  = String(pm.ValueKey ?? pm.Value ?? pm.ValueId ?? pm.ValueCode ?? '')
-      if (code) row[code] = key
-    })
-    return row
+// A variant in the chips' terms: facet code to value key, read the same way as
+// variantFacets above.
+function facetsOf(variant: any): Record<string, string> {
+  const facets: Record<string, string> = {}
+  ;(variant?.VariantParametrics ?? []).forEach((pm: any) => {
+    const code = pm.Code || pm.Name
+    const key  = String(pm.ValueKey ?? pm.Value ?? pm.ValueId ?? pm.ValueCode ?? '')
+    if (code && key) facets[code] = key
   })
+  return facets
+}
+
+// Only buyable variants can be chosen: StatusId=1 (Active), IsBuyable=true, Price > 0.
+const buyableVariants = computed(() => (product.value?.Variants ?? []).filter(v =>
+    v.StatusId === 1 && v.IsBuyable === true && (v.Price ?? 0) > 0
+))
+
+// The selected variant is the only selection state, and the chips are read
+// from it. Kept as a second ref, the chips started empty while a variant was
+// already selected - the one the address named, or the first buyable one - and
+// the first click then matched on that one facet alone and could swap the
+// others: a link to green/L, then XL, gave black/XL although green/XL existed.
+const selectedFacet = computed(() => facetsOf(selectedVariant.value))
+
+// A value can be chosen when some buyable variant has it. Not only those that
+// combine with the current choice: setFacet then moves the other facets, rather
+// than leaving the shopper unable to reach a color the current size lacks.
+const availableFacetValues = computed(() => {
   const result: Record<string, Set<string>> = {}
-  const sel = selectedFacet.value
-  ;(variantFacets.value ?? []).forEach(f => {
-    const set = new Set<string>()
-    rows.forEach(r => {
-      const ok = Object.keys(sel).every(code => code===f.code ? true : (!sel[code] || r[code]===sel[code]))
-      if (ok && r[f.code]) set.add(r[f.code])
-    })
-    result[f.code] = set
+  buyableVariants.value.forEach(v => {
+    Object.entries(facetsOf(v)).forEach(([code, key]) => (result[code] ??= new Set()).add(key))
   })
   return result
 })
 
-// Find the variant matching all selected facets, falling back to best partial match
-function applyVariantSelection() {
-  const vs = product.value?.Variants ?? []
-  const keys = Object.keys(selectedFacet.value)
-  if (!keys.length) { selectedVariant.value = null; return }
-  const found = vs.find(v => {
-    const vmap: Record<string, string> = {}
-    ;(v.VariantParametrics ?? []).forEach((pm: any) => {
-      const code = pm.Code || pm.Name
-      const val  = String(pm.ValueKey ?? pm.Value ?? pm.ValueId ?? pm.ValueCode ?? '')
-      if (code) vmap[code] = val
-    })
-    return keys.every(k => vmap[k] === selectedFacet.value[k])
-  })
-  selectedVariant.value = found ?? null
-
-  if (!selectedVariant.value) {
-    const pool = (product.value?.Variants ?? []).filter(v =>
-        v.StatusId === 1 && v.IsBuyable === true && (v.Price ?? 0) > 0
-    )
-    const keys2 = Object.keys(selectedFacet.value)
-    selectedVariant.value = pool.find(v => {
-      const vmap: Record<string,string> = {}
-      ;(v.VariantParametrics ?? []).forEach((pm:any) => {
-        const code = pm.Code || pm.Name
-        const val  = String(pm.ValueKey ?? pm.Value ?? pm.ValueId ?? pm.ValueCode ?? '')
-        if (code) vmap[code] = val
-      })
-      return keys2.every(k => !selectedFacet.value[k] || vmap[k] === selectedFacet.value[k])
-    }) ?? null
-  }
-}
-
+// A click changes one facet and keeps the others when a buyable variant has that
+// combination. When none has, it takes the buyable variant with the clicked
+// value that keeps the most of the others; on a tie, the first in Variants.
 function setFacet(code: string, key: string) {
-  if (availableFacetValues.value && availableFacetValues.value[code] && !availableFacetValues.value[code].has(key)) return
-  const next = { ...(selectedFacet.value ?? {}) }
-  next[code] = key
-  selectedFacet.value = next // Directly update selectedFacet
-  applyVariantSelection()
+  const current = selectedFacet.value
+  const kept = (v: any) => Object.entries(facetsOf(v)).filter(([c, k]) => c !== code && current[c] === k).length
+  const candidates = buyableVariants.value.filter(v => facetsOf(v)[code] === key)
+  if (!candidates.length) return
+  selectedVariant.value = candidates.reduce((best, v) => kept(v) > kept(best) ? v : best)
 }
 
 import api from '@/services/api';
@@ -604,9 +579,15 @@ function handleAddToBasket() {
 // The variant whose own unique name this is, or null when the name is the
 // product's shared one. Norce compares unique names case-insensitively.
 //
-// Not the root's PartNo: GetProductByUniqueName fills it for a variant's name,
-// but the root's price and stock stay those of the whole product, so the page
-// reads the variant from Variants either way.
+// Not the root's PartNo or Id. GetProductByUniqueName also finds a name by the
+// product's default name, the one without a culture, and answers in the
+// requested culture. For such a name the root's PartNo is set even when it is
+// the shared name (Open Demo, sv-SE: the English jacket name gives PartNo
+// 100001), and for a variant's default name the root is the cheapest variant,
+// not the one named. So the answer itself cannot say which variant such a link
+// meant, and the page starts it on the first buyable variant like a shared
+// name. The page's own links and the language switch always use the name in
+// the address's culture, which this does match.
 function variantNamedBy(uniqueName: string) {
   const name = uniqueName.toLowerCase();
   return product.value?.Variants?.find((v:any) => v.UniqueName?.toLowerCase() === name) ?? null;
@@ -634,10 +615,8 @@ async function fetchProductData() {
     // the variant the address named is the one in Variants with that name. Only
     // an address that names the whole product starts on the first buyable one.
     const firstBuyable = p?.Variants?.find((v:any) => v.StatusId === 1 && v.IsBuyable && (v.Price ?? 0) > 0) ?? null;
+    // The chips follow, since they are read from the selected variant.
     selectedVariant.value = variantNamedBy(props.uniqueName) ?? firstBuyable;
-    // Clear the chips too, or they would still show the previous selection
-    // after a language switch reloads the product.
-    selectedFacet.value = {};
 
   } catch (error: any) {
     exists = error.response?.status !== 404;
