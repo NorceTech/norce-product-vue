@@ -545,15 +545,35 @@ const availableFacetValues = computed(() => {
   return result
 })
 
+// The facets the shopper has clicked on this page, the latest first. Not a
+// selection - that is the variant - but which choices to keep when a click
+// cannot keep them all.
+const clickedFacets = ref<string[]>([])
+
 // A click changes one facet and keeps the others when a buyable variant has that
-// combination. When none has, it takes the buyable variant with the clicked
-// value that keeps the most of the others; on a tie, the first in Variants.
+// combination. When none has, the facet the shopper chose last is kept first,
+// then the one before it, and the facets never clicked last of all, in the
+// order the chips show them. Counting kept facets instead could leave a variant
+// unreachable when combinations are sparse: with black/S/matte, black/L/gloss,
+// white/S/gloss and white/L/matte, White then L gave black/L/gloss, a tie on
+// one kept facet that the first in the list won. Ranked by the latest choice,
+// clicking a variant's values once each, in any order, always ends on it.
 function setFacet(code: string, key: string) {
   const current = selectedFacet.value
-  const kept = (v: any) => Object.entries(facetsOf(v)).filter(([c, k]) => c !== code && current[c] === k).length
+  clickedFacets.value = [code, ...clickedFacets.value.filter(c => c !== code)]
+  const keepFirst = [
+    ...clickedFacets.value.slice(1),
+    ...variantFacets.value.map(f => f.code).filter(c => !clickedFacets.value.includes(c)),
+  ]
+  // 1 where the variant keeps that facet's current value, in keepFirst order.
+  const kept = (v: any) => keepFirst.map(c => facetsOf(v)[c] === current[c] ? 1 : 0)
+  const better = (a: number[], b: number[]) => {
+    const i = a.findIndex((x, n) => x !== b[n])
+    return i !== -1 && a[i] > b[i]
+  }
   const candidates = buyableVariants.value.filter(v => facetsOf(v)[code] === key)
   if (!candidates.length) return
-  selectedVariant.value = candidates.reduce((best, v) => kept(v) > kept(best) ? v : best)
+  selectedVariant.value = candidates.reduce((best, v) => better(kept(v), kept(best)) ? v : best)
 }
 
 import api from '@/services/api';
@@ -617,6 +637,7 @@ async function fetchProductData() {
     const firstBuyable = p?.Variants?.find((v:any) => v.StatusId === 1 && v.IsBuyable && (v.Price ?? 0) > 0) ?? null;
     // The chips follow, since they are read from the selected variant.
     selectedVariant.value = variantNamedBy(props.uniqueName) ?? firstBuyable;
+    clickedFacets.value = [];
 
   } catch (error: any) {
     exists = error.response?.status !== 404;
