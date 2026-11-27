@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  NONE, canChoose, canClear, cheapestBuyable, choose, clearSelection, facetCodes, facetsOf, isBuyable,
+  NONE, canChoose, canClear, cheapestBuyable, choose, clearSelection, facetCodes, facetRows, facetsOf, isBuyable,
   showsSelector, startSelection, type Facets, type Selection, type VariantLike,
 } from './variantSelection'
 
@@ -423,6 +423,35 @@ describe('showsSelector: whether there is a buyable variant to go to', () => {
   it('hides it between buyable variants the chips cannot tell apart', () => {
     const hoofOil = [variant('SINGLE', {}), variant('FOUR', {})]
     expect(showsSelector(hoofOil, startSelection(hoofOil, 'four'))).toBe(false)
+  })
+})
+
+// Copilot and Devin on 6caa811: a parametric left empty on every variant made
+// a row of one disabled None chip, since the page built its rows on its own.
+describe('facetRows: the rows the page shows', () => {
+  it('has a row for each facet the selection knows, and none for an empty parametric', () => {
+    const variants = [
+      variant('A', { Color: 'red', Note: '' }),
+      variant('B', { Color: 'blue', Note: '' }),
+      variant('C', { Note: '' }),
+    ]
+    const rows = facetRows(variants)
+    expect(rows.map(r => r.code)).toEqual(facetCodes(variants))
+    expect(rows).toEqual([{ code: 'Color', name: 'Color', values: [
+      { key: 'blue', name: 'blue' }, { key: 'red', name: 'red' }, { key: NONE, name: '' },
+    ] }])
+  })
+
+  it('shows no chip the selection cannot choose in some state', () => {
+    for (const [, combos] of catalogs) {
+      const variants = variantsOf(combos, (1 << combos.length) - 1)
+      const shown = facetRows(variants).flatMap(r => r.values.map(v => `${r.code}=${v.key}`))
+      const choosable = shown.filter(c => {
+        const [code, key] = c.split('=')
+        return canChoose(variants, clearSelection(variants), code, key)
+      })
+      expect(choosable).toEqual(shown)
+    }
   })
 })
 

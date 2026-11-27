@@ -258,8 +258,8 @@ import {cdnImg, getAlt, parseNorcedate, showFlag, fileUrl, formatMoney, decodeEn
 
 import type { Product, Promotion, RelationGroup, Flag } from '@/types'
 import {
-  NONE, canChoose, canClear, cheapestBuyable, choose, clearSelection, facetCode, facetsOf, isBuyable, showsSelector,
-  startSelection, valueKey, variantNamedBy, type Selection,
+  NONE, canChoose, canClear, cheapestBuyable, choose, clearSelection, facetRows, isBuyable, showsSelector,
+  startSelection, variantNamedBy, type Selection,
 } from '@/lib/variantSelection'
 
 type DebugPopup = { show: (errors: { context: string; message: string }[]) => void }
@@ -484,30 +484,9 @@ const vatAmount = computed(() => {
 })
 
 // Build facets from VariantParametrics — these are the selectable options (Color, Size, etc.)
-type VariantFacet = { code: string; name: string; values: { key: string; name: string }[] }
-
-const variantFacets = computed<VariantFacet[]>(() => {
-  const vs = product.value?.Variants ?? []
-  const buckets = new Map<string, VariantFacet>()
-  vs.forEach(v => {
-    (v.VariantParametrics ?? []).forEach((pm: any) => {
-      const code = facetCode(pm)
-      if (!code) return
-      if (!buckets.has(code)) buckets.set(code, { code, name: pm.Name ?? code, values: [] })
-      const bucket = buckets.get(code)!
-      const key = valueKey(pm)
-      const name = String(pm.ValueName ?? pm.Value ?? key)
-      if (key && !bucket.values.find(x => x.key === key)) bucket.values.push({ key, name })
-    })
-  })
-  buckets.forEach(b => b.values.sort((a, b) => a.name.localeCompare(b.name, 'sv')))
-  // A row some variant has no value in gets a None chip, last: that variant is
-  // chosen with it like with any other value (rule 6 in variantSelection.ts).
-  buckets.forEach(b => {
-    if (vs.some(v => facetsOf(v)[b.code] === undefined)) b.values.push({ key: NONE, name: '' })
-  })
-  return [...buckets.values()]
-})
+// The chip rows, from the same functions the selection uses, so no chip is
+// shown that the selection does not know (variantSelection.ts).
+const variantFacets = computed(() => facetRows(variants.value))
 
 const variants = computed<Product[]>(() => product.value?.Variants ?? [])
 

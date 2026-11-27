@@ -47,6 +47,7 @@ export interface ParametricLike {
   Value?: string | number | null
   ValueId?: string | number | null
   ValueCode?: string | number | null
+  ValueName?: string | null
 }
 
 /** The fields of a variant the selection reads. */
@@ -95,6 +96,36 @@ export function facetsOf(variant: VariantLike | null | undefined): Facets {
 /** The rows: every facet some variant has, in the order they first appear. */
 export function facetCodes(variants: readonly VariantLike[]): string[] {
   return [...new Set(variants.flatMap(v => Object.keys(facetsOf(v))))]
+}
+
+export interface FacetRow {
+  code: string
+  name: string
+  /** The values, by name, then NONE when some variant lacks the facet. Its name is empty; the page labels it. */
+  values: { key: string; name: string }[]
+}
+
+/**
+ * The rows the page shows: one per facet in `facetCodes`, read like `facetsOf`,
+ * so every chip shown is one the selection knows. A parametric without a value
+ * makes no row and no chip.
+ */
+export function facetRows(variants: readonly VariantLike[]): FacetRow[] {
+  const rows = new Map<string, FacetRow>(facetCodes(variants).map(code => [code, { code, name: code, values: [] }]))
+  for (const v of variants) {
+    for (const pm of v.VariantParametrics ?? []) {
+      const row = rows.get(facetCode(pm))
+      const key = valueKey(pm)
+      if (!row || !key) continue
+      if (row.name === row.code && pm.Name) row.name = pm.Name
+      if (!row.values.some(x => x.key === key)) row.values.push({ key, name: String(pm.ValueName ?? pm.Value ?? key) })
+    }
+  }
+  return [...rows.values()].map(row => {
+    row.values.sort((a, b) => a.name.localeCompare(b.name, 'sv'))
+    if (variants.some(v => facetsOf(v)[row.code] === undefined)) row.values.push({ key: NONE, name: '' })
+    return row
+  })
 }
 
 /** A variant's value in every row, NONE where it has no facet. */
