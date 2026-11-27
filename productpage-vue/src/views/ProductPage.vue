@@ -66,12 +66,12 @@
         <PromoStrip :promos="promotions" />
 
         <!-- Variant selector: faceted parametrics let the user pick Color, Size, etc.
-             Hidden entirely unless there is a real choice - see hasVariantChoice. -->
-        <section v-if="hasVariantChoice || needsWayOut(variants, selection)" class="vs mt-4">
+             Shown while there is a buyable variant to go to - see showsSelector. -->
+        <section v-if="showsSelector(variants, selection)" class="vs mt-4">
           <div class="vs__head">
             <h3 class="vs__title">{{ $t('productPage.chooseVariant') }}</h3>
             <!-- The way from one variant to any other: see rule 2 in variantSelection.ts. -->
-            <button v-if="Object.keys(selection.choices).length || (selection.variant && needsWayOut(variants, selection))" type="button" class="vs__clear" @click="clearChoices">
+            <button v-if="canClear(selection)" type="button" class="vs__clear" @click="clearChoices">
               {{ $t('productPage.clearChoices') }}
             </button>
           </div>
@@ -86,7 +86,7 @@
                   :class="{ 'is-active': selection.choices[f.code] === v.key }"
                   :disabled="!canChoose(variants, selection, f.code, v.key)"
                   @click="setFacet(f.code, v.key)"
-              >{{ v.name }}</button>
+              >{{ v.key === NONE ? $t('productPage.noValue') : v.name }}</button>
             </div>
           </div>
           <p v-if="choiceOpen" class="vs__hint">{{ $t('productPage.chooseRemaining') }}</p>
@@ -258,8 +258,8 @@ import {cdnImg, getAlt, parseNorcedate, showFlag, fileUrl, formatMoney, decodeEn
 
 import type { Product, Promotion, RelationGroup, Flag } from '@/types'
 import {
-  canChoose, cheapestBuyable, choose, clearSelection, facetCode, isBuyable, needsWayOut, startSelection, valueKey,
-  variantNamedBy, type Selection,
+  NONE, canChoose, canClear, cheapestBuyable, choose, clearSelection, facetCode, facetsOf, isBuyable, showsSelector,
+  startSelection, valueKey, variantNamedBy, type Selection,
 } from '@/lib/variantSelection'
 
 type DebugPopup = { show: (errors: { context: string; message: string }[]) => void }
@@ -501,22 +501,12 @@ const variantFacets = computed<VariantFacet[]>(() => {
     })
   })
   buckets.forEach(b => b.values.sort((a, b) => a.name.localeCompare(b.name, 'sv')))
+  // A row some variant has no value in gets a None chip, last: that variant is
+  // chosen with it like with any other value (rule 6 in variantSelection.ts).
+  buckets.forEach(b => {
+    if (vs.some(v => facetsOf(v)[b.code] === undefined)) b.values.push({ key: NONE, name: '' })
+  })
   return [...buckets.values()]
-})
-
-/**
- * Whether the variant selector is worth showing at all.
- *
- * Norce models every product as a variant cluster, so a cluster with a single
- * variant is normal - gating on `Variants.length` alone put a lone "Choose
- * variant" heading on most product pages. There is only something to pick when
- * there are at least two variants AND some facet actually differs between
- * them; two variants with no VariantParametrics render no chips either.
- */
-const hasVariantChoice = computed(() => {
-  const variants = product.value?.Variants ?? []
-  if (variants.length < 2) return false
-  return variantFacets.value.some(f => f.values.length > 1)
 })
 
 const variants = computed<Product[]>(() => product.value?.Variants ?? [])

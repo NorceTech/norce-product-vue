@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  canChoose, cheapestBuyable, choose, clearSelection, facetsOf, isBuyable, needsWayOut, startSelection,
-  type Facets, type Selection, type VariantLike,
+  NONE, canChoose, canClear, cheapestBuyable, choose, clearSelection, facetCodes, facetsOf, isBuyable,
+  showsSelector, startSelection, type Facets, type Selection, type VariantLike,
 } from './variantSelection'
 
 type V = VariantLike & { PartNo: string }
@@ -38,6 +38,15 @@ function walk(variants: V[], selection: Selection<V>, chips: [string, string][])
 
 const partNo = (s: Selection<V>) => s.variant?.PartNo ?? null
 
+// The chips that select a variant: its value in every row, NONE where it has
+// no facet - the same chips a link to it starts with.
+const chipsOf = (variants: V[], target: V) =>
+  Object.entries(startSelection(variants, target.UniqueName!).choices) as [string, string][]
+
+// Every chip the page shows: each row's values, and None in a row some variant lacks.
+const allChips = (variants: V[]) => facetCodes(variants).flatMap(code =>
+  [...new Set(variants.map(v => facetsOf(v)[code] ?? NONE))].map(key => [code, key] as [string, string]))
+
 // Devin's sparse catalog on the PR: every pair differs in two facets.
 const sparse = [
   variant('BSM', { Color: 'black', Size: 'S', Finish: 'matte' }),
@@ -45,6 +54,55 @@ const sparse = [
   variant('WSG', { Color: 'white', Size: 'S', Finish: 'gloss' }),
   variant('WLM', { Color: 'white', Size: 'L', Finish: 'matte' }),
 ]
+
+// Every combination of the given values, one variant each. An undefined value
+// is a variant without that facet.
+function catalog(colors: (string | undefined)[], sizes: (string | undefined)[], finishes: (string | undefined)[]): Facets[] {
+  return colors.flatMap(Color => sizes.flatMap(Size => finishes.map(Finish => {
+    const f: Facets = {}
+    if (Color !== undefined) f.Color = Color
+    if (Size !== undefined) f.Size = Size
+    if (Finish !== undefined) f.Finish = Finish
+    return f
+  })))
+}
+
+// Every sparse subset of these catalogs is tried. The later ones have variants
+// without a facet, down to one with none at all (rule 6).
+const catalogs: [string, Facets[]][] = [
+  ['3 colors × 2 sizes × 2 finishes', catalog(['black', 'white', 'red'], ['S', 'L'], ['matte', 'gloss'])],
+  ['2 colors × 2 sizes × finish or none', catalog(['black', 'white'], ['S', 'L'], ['matte', 'gloss', undefined])],
+  ['color or none × 2 sizes × gloss or none', catalog(['black', 'white', undefined], ['S', 'L'], ['gloss', undefined])],
+  ['color, size and finish, each or none', catalog(['red', undefined], ['M', undefined], ['gloss', undefined])],
+]
+
+// The variants of one subset of a catalog. With `someUnbuyable`, every fourth
+// one cannot be bought.
+function variantsOf(combos: Facets[], mask: number, someUnbuyable = false): V[] {
+  return combos
+    .filter((_, i) => mask & (1 << i))
+    .map((f, i) => variant(Object.values(f).join('/') || 'none', f, someUnbuyable && i % 4 === 3 ? { IsBuyable: false } : {}))
+}
+
+// The buyable variants the chips and Clear selection reach from a state,
+// used only while the selector shows.
+function reachable(variants: V[], from: Selection<V>): Set<V> {
+  const chips = allChips(variants)
+  const seen = new Set<string>()
+  const found = new Set<V>()
+  const queue = [from]
+  while (queue.length) {
+    const s = queue.pop()!
+    const id = JSON.stringify([s.choices, partNo(s)])
+    if (seen.has(id)) continue
+    seen.add(id)
+    if (isBuyable(s.variant)) found.add(s.variant!)
+    if (!showsSelector(variants, s)) continue
+    if (canClear(s)) queue.push(clearSelection(variants))
+    for (const [code, key] of chips) if (canChoose(variants, s, code, key)) queue.push(choose(variants, s, code, key))
+  }
+  return found
+}
 
 describe('start', () => {
   const variants = [
@@ -101,8 +159,7 @@ describe('rule 2: every buyable variant can be reached from any state', () => {
   // black/S/matte, white/L/matte could not be reached.
   it("reaches every variant of Devin's sparse catalog: clear, then its values", () => {
     for (const target of sparse) {
-      const end = click(sparse, clearSelection(sparse), ...(Object.entries(facetsOf(target)) as [string, string][]))
-      expect(partNo(end)).toBe(target.PartNo)
+      expect(partNo(click(sparse, clearSelection(sparse), ...chipsOf(sparse, target)))).toBe(target.PartNo)
     }
   })
 
@@ -110,30 +167,51 @@ describe('rule 2: every buyable variant can be reached from any state', () => {
     expect(clearSelection(sparse)).toEqual({ choices: {}, variant: null })
   })
 
-  // Every subset of two catalogs, every target and every click order. The
-  // second catalog has variants without a finish (rule 6).
-  const catalogs: [string, Facets[]][] = [
-    ['3 colors × 2 sizes × 2 finishes', product3(['black', 'white', 'red'], ['S', 'L'], ['matte', 'gloss'])],
-    ['2 colors × 2 sizes × finish or none', product3(['black', 'white'], ['S', 'L'], ['matte', 'gloss', undefined])],
-  ]
   for (const [name, combos] of catalogs) {
+    // Clear selection, then the target's chips, None included, in every order.
     it(`reaches every variant in every sparse ${name} catalog, in any click order`, () => {
       let paths = 0
       for (let mask = 1; mask < 1 << combos.length; mask++) {
-        const variants = combos
-          .filter((_, i) => mask & (1 << i))
-          .map(f => variant(Object.values(f).join('/'), f))
+        const variants = variantsOf(combos, mask)
         for (const target of variants) {
-          for (const order of permutations(Object.entries(facetsOf(target)) as [string, string][])) {
-            if (walk(variants, clearSelection(variants), order).variant !== target) {
+          // A variant with the same values as an earlier one is that one.
+          const expected = variants.find(v => JSON.stringify(chipsOf(variants, v)) === JSON.stringify(chipsOf(variants, target)))
+          for (const order of permutations(chipsOf(variants, target))) {
+            if (walk(variants, clearSelection(variants), order).variant !== expected) {
               throw new Error(`${order.map(c => c.join('=')).join(', ')} missed ${target.PartNo}`)
             }
             paths++
           }
         }
       }
-      expect(paths).toBeGreaterThan(10_000)
+      expect(paths).toBeGreaterThan(30)
     }, 60_000)
+
+    // Rule 2 as the page offers it: from every start - each variant's link and
+    // the shared name - the chips and Clear selection, used only while the
+    // selector shows, reach every buyable variant the chips can tell apart.
+    it(`reaches every buyable variant from every start in every sparse ${name} catalog`, () => {
+      for (let mask = 1; mask < 1 << combos.length; mask++) {
+        const variants = variantsOf(combos, mask, true)
+        const key = (v: V) => JSON.stringify(chipsOf(variants, v))
+        const wanted = new Map<string, V>()
+        for (const v of variants.filter(isBuyable)) if (!wanted.has(key(v))) wanted.set(key(v), v)
+
+        const fromCleared = reachable(variants, clearSelection(variants))
+        for (const start of [startSelection(variants, 'shared'), ...variants.map(v => startSelection(variants, v.UniqueName!))]) {
+          const where = `${partNo(start)} in ${variants.map(v => v.PartNo).join(' ')}`
+          if (!showsSelector(variants, start)) {
+            // Hidden only on the one buyable variant there is.
+            expect([...wanted.values()].map(v => v.PartNo), where).toEqual([partNo(start)])
+            continue
+          }
+          expect(canClear(start), where).toBe(true)
+          const reached = new Set(fromCleared)
+          if (isBuyable(start.variant)) reached.add(start.variant!)
+          for (const v of wanted.values()) if (!reached.has(v)) throw new Error(`${v.PartNo} unreachable from ${where}`)
+        }
+      }
+    }, 120_000)
   }
 })
 
@@ -166,9 +244,9 @@ describe('rule 3: a chip without a buyable combination cannot be clicked', () =>
   // From every state a shopper can reach, a click changes the clicked chip
   // and nothing else, and the selected variant has exactly the chips' values.
   it('never changes a chip the shopper did not click', () => {
-    const combos = product3(['black', 'white', 'red'], ['S', 'L'], ['matte', 'gloss', undefined])
+    const combos = catalog(['black', 'white', 'red'], ['S', 'L'], ['matte', 'gloss', undefined])
     const variants = combos.filter((_, i) => i % 3 !== 1).map(f => variant(Object.values(f).join('/'), f))
-    const chips = combos.flatMap(f => Object.entries(f)).filter(([, k]) => k !== undefined) as [string, string][]
+    const chips = allChips(variants)
     const seen = new Set<string>()
     const queue: Selection<V>[] = [clearSelection(variants), ...variants.map(v => startSelection(variants, v.UniqueName!))]
     while (queue.length) {
@@ -181,7 +259,7 @@ describe('rule 3: a chip without a buyable combination cannot be clicked', () =>
         const next = choose(variants, s, code, key)
         if (next === s) continue
         expect(next.choices).toEqual({ ...s.choices, [code]: key })
-        if (next.variant) expect(facetsOf(next.variant)).toEqual(next.choices)
+        if (next.variant) expect(Object.fromEntries(chipsOf(variants, next.variant))).toEqual(next.choices)
         queue.push(next)
       }
     }
@@ -250,7 +328,7 @@ describe('rule 5: a linked variant that cannot be bought is left at the first cl
   })
 })
 
-describe('rule 6: a variant without a facet', () => {
+describe('rule 6: a variant without a facet has its None chip on in that row', () => {
   // Devin on 0cd8cb2, "Missing options override selected chips": with Finish
   // before Color, black/S without a finish, then L, gave white/L.
   const variants = [
@@ -260,54 +338,91 @@ describe('rule 6: a variant without a facet', () => {
   ]
   const start = startSelection(variants, 'b-s')
 
-  it('has no chip on in the row it lacks', () => {
-    expect(start.choices).toEqual({ Color: 'black', Size: 'S' })
+  it('starts with None on in the row it lacks', () => {
+    expect(start.choices).toEqual({ Color: 'black', Size: 'S', Finish: NONE })
   })
 
-  it('keeps the color, and leaves the finish to the shopper', () => {
-    const s = click(variants, start, ['Size', 'L'])
-    expect(s.choices).toEqual({ Color: 'black', Size: 'L' })
+  it('never switches the color for a size: L is disabled, since no black/L lacks a finish', () => {
+    expect(canChoose(variants, start, 'Size', 'L')).toBe(false)
+  })
+
+  it('is reached with None like any other value', () => {
+    const s = click(variants, clearSelection(variants), ['Color', 'white'], ['Size', 'L'])
     expect(s.variant).toBeNull()
-    expect(partNo(click(variants, s, ['Finish', 'gloss']))).toBe('B-L-GLOSS')
+    expect(partNo(click(variants, s, ['Finish', NONE]))).toBe('W-L')
   })
 
-  it('is selected when the chips match it with its row empty', () => {
-    expect(partNo(click(variants, start, ['Size', 'L'], ['Color', 'white']))).toBe('W-L')
-  })
-
-  it('never matches a chip in the row it lacks', () => {
+  it('never matches a chip with a value in the row it lacks', () => {
     const glossy = click(variants, clearSelection(variants), ['Finish', 'gloss'])
     expect(canChoose(variants, glossy, 'Color', 'white')).toBe(false)
   })
+
+  // Devin's flag on a5cb324 and Copilot on 99b7023: variants that differ only
+  // in whether they have a facet hid the selector, and one could not be reached.
+  describe('when variants differ only in having a facet', () => {
+    const bare = [variant('PLAIN', {}), variant('RED', { Color: 'red' })]
+    const finish = [variant('GLOSS', { Color: 'black', Finish: 'gloss' }), variant('BLACK', { Color: 'black' })]
+
+    it('shows the selector on either of them', () => {
+      for (const vs of [bare, finish]) {
+        for (const v of vs) expect(showsSelector(vs, startSelection(vs, v.UniqueName!))).toBe(true)
+      }
+    })
+
+    it('reaches the other one with a single click', () => {
+      expect(partNo(click(bare, startSelection(bare, 'plain'), ['Color', 'red']))).toBe('RED')
+      expect(partNo(click(bare, startSelection(bare, 'red'), ['Color', NONE]))).toBe('PLAIN')
+      expect(partNo(click(finish, startSelection(finish, 'gloss'), ['Finish', NONE]))).toBe('BLACK')
+      expect(partNo(click(finish, startSelection(finish, 'black'), ['Finish', 'gloss']))).toBe('GLOSS')
+    })
+
+    it('reaches both after Clear selection', () => {
+      expect(partNo(click(bare, clearSelection(bare), ['Color', NONE]))).toBe('PLAIN')
+      expect(partNo(click(bare, clearSelection(bare), ['Color', 'red']))).toBe('RED')
+      expect(partNo(click(finish, clearSelection(finish), ['Finish', NONE], ['Color', 'black']))).toBe('BLACK')
+      expect(partNo(click(finish, clearSelection(finish), ['Color', 'black'], ['Finish', 'gloss']))).toBe('GLOSS')
+    })
+  })
 })
 
-// Copilot on a5cb324: a linked variant that cannot be bought, with a buyable
-// twin with the same values, hid the selector, since no facet differs.
-describe('a way out of a linked variant that cannot be bought', () => {
-  it('is offered when nothing differs but the twin can be bought, and leads to it', () => {
+describe('showsSelector: whether there is a buyable variant to go to', () => {
+  // Copilot on a5cb324: a linked variant that cannot be bought, with a buyable
+  // twin with the same values, hid the selector, since no facet differs.
+  it('shows it for a linked variant that cannot be bought, next to a buyable twin', () => {
     const twins = [variant('RED-M', { Color: 'red', Size: 'M' }, { IsBuyable: false }), variant('RED-M-2', { Color: 'red', Size: 'M' })]
     const linked = startSelection(twins, 'red-m')
-    expect(needsWayOut(twins, linked)).toBe(true)
+    expect(showsSelector(twins, linked)).toBe(true)
     expect(partNo(click(twins, linked, ['Color', 'red']))).toBe('RED-M-2')
     // Devin and Copilot on 00ead70: after Clear selection nothing was selected,
     // the selector hid again, and with it the chips that lead to the twin.
     const cleared = clearSelection(twins)
-    expect(needsWayOut(twins, cleared)).toBe(true)
+    expect(showsSelector(twins, cleared)).toBe(true)
     expect(partNo(click(twins, cleared, ['Size', 'M'], ['Color', 'red']))).toBe('RED-M-2')
   })
 
-  it('leads to the buyable one when no variant has facets at all', () => {
+  it('shows it, with Clear selection, when no variant has facets at all', () => {
     const plain = [variant('FOUR', {}, { StatusId: 3 }), variant('SINGLE', {})]
     const linked = startSelection(plain, 'four')
-    expect(needsWayOut(plain, linked)).toBe(true)
+    expect(showsSelector(plain, linked)).toBe(true)
+    expect(canClear(linked)).toBe(true)
     expect(partNo(clearSelection(plain))).toBe('SINGLE')
   })
 
-  it('is not offered on a buyable variant, or when nothing can be bought', () => {
+  it('hides it on the only buyable variant, or when nothing can be bought', () => {
     const twins = [variant('A', { Color: 'red' }), variant('B', { Color: 'red' }, { IsBuyable: false })]
-    expect(needsWayOut(twins, startSelection(twins, 'a'))).toBe(false)
+    expect(showsSelector(twins, startSelection(twins, 'a'))).toBe(false)
+    const others = [variant('A', { Color: 'red' }), variant('B', { Color: 'blue' }, { StatusId: 3 })]
+    expect(showsSelector(others, startSelection(others, 'a'))).toBe(false)
     const none = [variant('A', { Color: 'red' }, { Price: 0 })]
-    expect(needsWayOut(none, startSelection(none, 'a'))).toBe(false)
+    expect(showsSelector(none, startSelection(none, 'a'))).toBe(false)
+  })
+
+  // The hoof oil on the open demo: a single bottle and a 4-pack, both without
+  // VariantParametrics. The chips cannot tell them apart, so there is nothing
+  // to show; each is reached by its own link.
+  it('hides it between buyable variants the chips cannot tell apart', () => {
+    const hoofOil = [variant('SINGLE', {}), variant('FOUR', {})]
+    expect(showsSelector(hoofOil, startSelection(hoofOil, 'four'))).toBe(false)
   })
 })
 
@@ -347,13 +462,6 @@ describe('cheapestBuyable', () => {
     expect(cheapestBuyable(variants, { Color: 'blue', Size: 'S' })?.PartNo).toBe('BLUE-S')
   })
 })
-
-// Every combination of the given values, one variant each. An undefined
-// finish is a variant without one.
-function product3(colors: string[], sizes: string[], finishes: (string | undefined)[]): Facets[] {
-  return colors.flatMap(Color => sizes.flatMap(Size => finishes.map((Finish): Facets =>
-    Finish === undefined ? { Color, Size } : { Color, Size, Finish })))
-}
 
 function permutations<T>(items: T[]): T[][] {
   if (items.length <= 1) return [items]

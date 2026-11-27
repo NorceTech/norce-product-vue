@@ -89,7 +89,9 @@ its root say which variant it meant, so it opens like the shared name — see `v
 The state is the chips that are on and the variant they name. A chip can be clicked only when a
 buyable variant has its value together with every other chip that is on, so a click never moves
 another chip and the page never shows a variant other than the chips do. On a sparse catalog that
-can leave no single click from one variant to another; **Clear selection** is the way there. Keep
+can leave no single click from one variant to another; **Clear selection** is the way there. A
+variant without a facet has a **None** chip of its own in that row, so it is chosen like any other,
+and the selector shows whenever there is a buyable variant to go to (`showsSelector`). Keep
 the rules in that file's header, and change a rule there and in its test, never by ranking
 candidates in the page: every ranking tried on PEX-884 left some variant unreachable or moved a
 chip the shopper had not clicked.

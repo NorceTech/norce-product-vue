@@ -3,18 +3,27 @@
  * product's `Variants`: no Vue, no API, so every rule below has a unit test in
  * variantSelection.test.ts.
  *
+ * The chips come in rows, one per facet any variant has. A variant without a
+ * facet has the value NONE in that row, with a chip of its own ("None"), so
+ * every variant has exactly one value in every row and is chosen by its chips
+ * like any other (rule 6).
+ *
  * The state is the chips that are on (`choices`, facet code to value key) and
  * the variant they name (`variant`). The page shows and adds `variant`, and it
- * is never a combination other than the chips show: when the choices name no
- * buyable variant yet, it is null and the basket button is off.
+ * is never a combination other than the chips show: while the choices leave a
+ * row open, it is null and the basket button is off.
  *
  * The rules:
  * 1. A click on a value the selected variant already has does nothing, when
  *    that variant can be bought.
- * 2. Every buyable variant can be reached from any state: clear the choices,
- *    then click its values, in any order. A click never moves another chip, so
- *    on a sparse catalog two variants can differ in two facets with no buyable
- *    step between them, and clearing is the way from one to the other.
+ * 2. Every buyable variant can be reached from any state. The page shows the
+ *    selector whenever it is not on a buyable variant, or another buyable
+ *    variant has other values (`showsSelector`), and the way there is to clear
+ *    the choices and click the variant's values, in any order. A click never
+ *    moves another chip, so on a sparse catalog two variants can differ in two
+ *    facets with no buyable step between them; clearing connects them. Two
+ *    buyable variants with the same values cannot be told apart by chips, and
+ *    the first one in the list is the one chosen.
  * 3. A chip can be clicked only when a buyable variant has its value together
  *    with every other chip that is on. A click therefore never changes another
  *    chip, and the page never switches to a combination the shopper cannot see.
@@ -23,9 +32,8 @@
  * 5. A linked variant that cannot be bought is left at the first click, which
  *    can only be on a chip a buyable variant has with the other chips. Its own
  *    chips can be clicked only if another buyable variant has the same values.
- * 6. A variant without a facet is chosen with no chip on in that facet's row:
- *    it never matches a chip there, and choices that name a facet never select
- *    it. Its rows are compared like any other, not ranked.
+ * 6. A variant without a facet has NONE in that row: its "None" chip is on, and
+ *    a chip with a value never matches it there.
  *
  * Whether the selected variant can be added to the basket is `isBuyable` too,
  * so the chips and the basket button cannot disagree about it.
@@ -56,9 +64,12 @@ export type Facets = Record<string, string>
 export interface Selection<V> {
   /** The chips that are on. */
   choices: Facets
-  /** The variant the chips name, or null when they name no buyable one yet. */
+  /** The variant the chips name, or null while they leave a row open. */
   variant: V | null
 }
+
+/** The value of a row the variant has no facet for. No real value key is this. */
+export const NONE = '\u0000none'
 
 /** The facet a parametric belongs to: its code, or its name when it has none. */
 export function facetCode(pm: ParametricLike): string {
@@ -70,7 +81,7 @@ export function valueKey(pm: ParametricLike): string {
   return String(pm.ValueKey ?? pm.Value ?? pm.ValueId ?? pm.ValueCode ?? '')
 }
 
-/** A variant in the chips' terms. A facet without a code or a value is absent. */
+/** The facets a variant has. A facet without a code or a value is absent. */
 export function facetsOf(variant: VariantLike | null | undefined): Facets {
   const facets: Facets = {}
   for (const pm of variant?.VariantParametrics ?? []) {
@@ -79,6 +90,17 @@ export function facetsOf(variant: VariantLike | null | undefined): Facets {
     if (code && key) facets[code] = key
   }
   return facets
+}
+
+/** The rows: every facet some variant has, in the order they first appear. */
+export function facetCodes(variants: readonly VariantLike[]): string[] {
+  return [...new Set(variants.flatMap(v => Object.keys(facetsOf(v))))]
+}
+
+/** A variant's value in every row, NONE where it has no facet. */
+function valuesOf(variant: VariantLike, codes: readonly string[]): Facets {
+  const facets = facetsOf(variant)
+  return Object.fromEntries(codes.map(c => [c, facets[c] ?? NONE]))
 }
 
 /** Active (StatusId 1), buyable and priced. Only such a variant can be chosen. */
@@ -106,14 +128,22 @@ export function variantNamedBy<V extends VariantLike>(variants: readonly V[], un
 }
 
 /**
- * Nothing that can be bought is selected, and some variant can be bought: the
- * selected variant cannot be, or none is selected. The page then shows the
- * selector even when no facet differs. Two variants with the same values, one
- * of them unbuyable, would otherwise leave the shopper on the one that cannot
- * be bought, or after Clear selection with no chips to choose the other (rule 2).
+ * Whether the page shows the selector (rule 2): some buyable variant is one the
+ * page is not on and the chips can reach. That is any buyable variant while the
+ * page is on none, or on one that cannot be bought, and otherwise one with
+ * other values than the selected variant.
  */
-export function needsWayOut<V extends VariantLike>(variants: readonly V[], selection: Selection<V>): boolean {
-  return !isBuyable(selection.variant) && variants.some(isBuyable)
+export function showsSelector<V extends VariantLike>(variants: readonly V[], selection: Selection<V>): boolean {
+  const selected = selection.variant
+  if (!isBuyable(selected)) return variants.some(isBuyable)
+  const codes = facetCodes(variants)
+  const own = valuesOf(selected!, codes)
+  return variants.some(v => isBuyable(v) && codes.some(c => valuesOf(v, codes)[c] !== own[c]))
+}
+
+/** Whether Clear selection would change anything: a chip is on, or a variant selected. */
+export function canClear<V>(selection: Selection<V>): boolean {
+  return Object.keys(selection.choices).length > 0 || selection.variant !== null
 }
 
 /**
@@ -123,12 +153,11 @@ export function needsWayOut<V extends VariantLike>(variants: readonly V[], selec
 export function cheapestBuyable<V extends VariantLike & { PriceIncVat?: number | null }>(
   variants: readonly V[], choices: Facets = {},
 ): V | null {
-  const matching = variants.filter(v => {
-    const facets = facetsOf(v)
-    return isBuyable(v) && Object.entries(choices).every(([c, k]) => facets[c] === k)
-  })
-  return matching.reduce<V | null>(
-    (cheapest, v) => cheapest === null || (v.PriceIncVat ?? 0) < (cheapest.PriceIncVat ?? 0) ? v : cheapest, null)
+  const codes = facetCodes(variants)
+  return variants
+    .filter(v => isBuyable(v) && agrees(valuesOf(v, codes), choices))
+    .reduce<V | null>(
+      (cheapest, v) => cheapest === null || (v.PriceIncVat ?? 0) < (cheapest.PriceIncVat ?? 0) ? v : cheapest, null)
 }
 
 /**
@@ -138,10 +167,10 @@ export function cheapestBuyable<V extends VariantLike & { PriceIncVat?: number |
  */
 export function startSelection<V extends VariantLike>(variants: readonly V[], uniqueName: string): Selection<V> {
   const variant = variantNamedBy(variants, uniqueName) ?? variants.find(isBuyable) ?? null
-  return { choices: facetsOf(variant), variant }
+  return { choices: variant ? valuesOf(variant, facetCodes(variants)) : {}, variant }
 }
 
-/** No chips on. Selects a variant only if a buyable one has no facets at all. */
+/** No chips on. Selects a variant only when there are no rows at all. */
 export function clearSelection<V extends VariantLike>(variants: readonly V[]): Selection<V> {
   return { choices: {}, variant: buyableWithExactly(variants, {}) }
 }
@@ -153,18 +182,18 @@ export function clearSelection<V extends VariantLike>(variants: readonly V[]): S
 export function canChoose<V extends VariantLike>(
   variants: readonly V[], selection: Selection<V>, code: string, key: string,
 ): boolean {
+  const codes = facetCodes(variants)
   return variants.some(v => {
     if (!isBuyable(v)) return false
-    const facets = facetsOf(v)
-    return facets[code] === key
-      && Object.entries(selection.choices).every(([c, k]) => c === code || facets[c] === k)
+    const values = valuesOf(v, codes)
+    return values[code] === key && agrees(values, selection.choices, code)
   })
 }
 
 /**
  * A click on a chip. Turns that chip on and changes nothing else, then selects
  * the buyable variant with exactly the chips that are on, or none while the
- * chips still leave a facet open.
+ * chips still leave a row open.
  */
 export function choose<V extends VariantLike>(
   variants: readonly V[], selection: Selection<V>, code: string, key: string,
@@ -178,16 +207,18 @@ export function choose<V extends VariantLike>(
   return { choices, variant: buyableWithExactly(variants, choices) }
 }
 
+/** The values agree with every chip that is on, the row `except` aside. */
+function agrees(values: Facets, choices: Facets, except?: string): boolean {
+  return Object.entries(choices).every(([c, k]) => c === except || values[c] === k)
+}
+
 /**
- * The first buyable variant whose facets are exactly these: the same facets,
- * with the same values. Two buyable variants with the same values cannot be told
+ * The first buyable variant with these values in every row, or null while a row
+ * has no chip on. Two buyable variants with the same values cannot be told
  * apart by chips; the first one in the list is the one chosen.
  */
 function buyableWithExactly<V extends VariantLike>(variants: readonly V[], choices: Facets): V | null {
-  const codes = Object.keys(choices)
-  return variants.find(v => {
-    if (!isBuyable(v)) return false
-    const facets = facetsOf(v)
-    return Object.keys(facets).length === codes.length && codes.every(c => facets[c] === choices[c])
-  }) ?? null
+  const codes = facetCodes(variants)
+  if (codes.some(c => choices[c] === undefined)) return null
+  return variants.find(v => isBuyable(v) && agrees(valuesOf(v, codes), choices)) ?? null
 }
