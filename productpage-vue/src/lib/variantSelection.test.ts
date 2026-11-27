@@ -19,10 +19,19 @@ function variant(partNo: string, facets: Facets, extra: Partial<V> = {}): V {
   }
 }
 
-// Clicks in order, as the page does: a disabled chip cannot be clicked, so a
-// click on one fails the test instead of being ignored.
+// Every chip the page shows, from facetRows as the page reads it. The tests
+// click only these, so a chip facetRows drops is a chip no test can reach.
+const allChips = (variants: V[]) =>
+  facetRows(variants).flatMap(row => row.values.map(v => [row.code, v.key] as [string, string]))
+
+const isShown = (variants: V[], code: string, key: string) =>
+  allChips(variants).some(([c, k]) => c === code && k === key)
+
+// Clicks in order, as the page does: only a chip the page shows, and not a
+// disabled one, so a click on either fails the test instead of being ignored.
 function click(variants: V[], selection: Selection<V>, ...chips: [string, string][]) {
   return chips.reduce((s, [code, key]) => {
+    expect(isShown(variants, code, key), `${code}=${key} is shown`).toBe(true)
     expect(canChoose(variants, s, code, key), `${code}=${key} can be clicked`).toBe(true)
     return choose(variants, s, code, key)
   }, selection)
@@ -30,7 +39,9 @@ function click(variants: V[], selection: Selection<V>, ...chips: [string, string
 
 // The same without an expect per click, for the exhaustive loops.
 function walk(variants: V[], selection: Selection<V>, chips: [string, string][]) {
+  const shown = allChips(variants)
   return chips.reduce((s, [code, key]) => {
+    if (!shown.some(([c, k]) => c === code && k === key)) throw new Error(`${code}=${key} is not shown`)
     if (!canChoose(variants, s, code, key)) throw new Error(`${code}=${key} cannot be clicked`)
     return choose(variants, s, code, key)
   }, selection)
@@ -42,10 +53,6 @@ const partNo = (s: Selection<V>) => s.variant?.PartNo ?? null
 // no facet - the same chips a link to it starts with.
 const chipsOf = (variants: V[], target: V) =>
   Object.entries(startSelection(variants, target.UniqueName!).choices) as [string, string][]
-
-// Every chip the page shows: each row's values, and None in a row some variant lacks.
-const allChips = (variants: V[]) => facetCodes(variants).flatMap(code =>
-  [...new Set(variants.map(v => facetsOf(v)[code] ?? NONE))].map(key => [code, key] as [string, string]))
 
 // Devin's sparse catalog on the PR: every pair differs in two facets.
 const sparse = [
