@@ -26,6 +26,9 @@
  * 6. A variant without a facet is chosen with no chip on in that facet's row:
  *    it never matches a chip there, and choices that name a facet never select
  *    it. Its rows are compared like any other, not ranked.
+ *
+ * Whether the selected variant can be added to the basket is `isBuyable` too,
+ * so the chips and the basket button cannot disagree about it.
  */
 
 /** A parametric as `VariantParametrics` carries it. */
@@ -100,6 +103,23 @@ export function isBuyable(variant: VariantLike | null | undefined): boolean {
 export function variantNamedBy<V extends VariantLike>(variants: readonly V[], uniqueName: string): V | null {
   const name = uniqueName.toLowerCase()
   return variants.find(v => v.UniqueName?.toLowerCase() === name) ?? null
+}
+
+/**
+ * The selected variant cannot be bought and another can. The page then shows
+ * the selector, and Clear selection, even when no facet differs: two variants
+ * with the same values, one of them unbuyable, or variants with no facets at
+ * all, would otherwise leave the shopper on the one that cannot be bought
+ * (rule 2).
+ */
+export function needsWayOut<V extends VariantLike>(variants: readonly V[], selection: Selection<V>): boolean {
+  return selection.variant !== null && !isBuyable(selection.variant) && variants.some(isBuyable)
+}
+
+/** The cheapest buyable variant incl. VAT: the "from" price while no variant is selected. */
+export function cheapestBuyable<V extends VariantLike & { PriceIncVat?: number | null }>(variants: readonly V[]): V | null {
+  return variants.filter(isBuyable).reduce<V | null>(
+    (cheapest, v) => cheapest === null || (v.PriceIncVat ?? 0) < (cheapest.PriceIncVat ?? 0) ? v : cheapest, null)
 }
 
 /**

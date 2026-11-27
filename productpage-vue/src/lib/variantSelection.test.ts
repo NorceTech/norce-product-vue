@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  canChoose, choose, clearSelection, facetsOf, startSelection, type Facets, type Selection, type VariantLike,
+  canChoose, cheapestBuyable, choose, clearSelection, facetsOf, isBuyable, needsWayOut, startSelection,
+  type Facets, type Selection, type VariantLike,
 } from './variantSelection'
 
 type V = VariantLike & { PartNo: string }
@@ -277,6 +278,58 @@ describe('rule 6: a variant without a facet', () => {
   it('never matches a chip in the row it lacks', () => {
     const glossy = click(variants, clearSelection(variants), ['Finish', 'gloss'])
     expect(canChoose(variants, glossy, 'Color', 'white')).toBe(false)
+  })
+})
+
+// Copilot on a5cb324: a linked variant that cannot be bought, with a buyable
+// twin with the same values, hid the selector, since no facet differs.
+describe('a way out of a linked variant that cannot be bought', () => {
+  it('is offered when nothing differs but the twin can be bought, and leads to it', () => {
+    const twins = [variant('RED-M', { Color: 'red', Size: 'M' }, { IsBuyable: false }), variant('RED-M-2', { Color: 'red', Size: 'M' })]
+    const linked = startSelection(twins, 'red-m')
+    expect(needsWayOut(twins, linked)).toBe(true)
+    expect(partNo(click(twins, linked, ['Color', 'red']))).toBe('RED-M-2')
+    expect(partNo(click(twins, clearSelection(twins), ['Size', 'M'], ['Color', 'red']))).toBe('RED-M-2')
+  })
+
+  it('leads to the buyable one when no variant has facets at all', () => {
+    const plain = [variant('FOUR', {}, { StatusId: 3 }), variant('SINGLE', {})]
+    const linked = startSelection(plain, 'four')
+    expect(needsWayOut(plain, linked)).toBe(true)
+    expect(partNo(clearSelection(plain))).toBe('SINGLE')
+  })
+
+  it('is not offered on a buyable variant, or when nothing can be bought', () => {
+    const twins = [variant('A', { Color: 'red' }), variant('B', { Color: 'red' }, { IsBuyable: false })]
+    expect(needsWayOut(twins, startSelection(twins, 'a'))).toBe(false)
+    const none = [variant('A', { Color: 'red' }, { Price: 0 })]
+    expect(needsWayOut(none, startSelection(none, 'a'))).toBe(false)
+  })
+})
+
+// Copilot on a5cb324: the basket button read only IsBuyable. It uses
+// isBuyable, the chips' own test.
+describe('isBuyable, for the chips and the basket button alike', () => {
+  it('needs status 1, IsBuyable and a price above 0', () => {
+    expect(isBuyable(variant('OK', {}))).toBe(true)
+    expect(isBuyable(variant('EXPIRING', {}, { StatusId: 3 }))).toBe(false)
+    expect(isBuyable(variant('FREE', {}, { Price: 0 }))).toBe(false)
+    expect(isBuyable(variant('BLOCKED', {}, { IsBuyable: false }))).toBe(false)
+    expect(isBuyable(null)).toBe(false)
+  })
+})
+
+// Devin on a5cb324: with no variant selected the page struck through the
+// root's price ex VAT. It shows the cheapest buyable variant's price instead.
+describe('cheapestBuyable', () => {
+  it('is the buyable variant with the lowest price incl. VAT', () => {
+    const variants = [
+      variant('DEAR', {}, { PriceIncVat: 300 } as any),
+      variant('GONE', {}, { PriceIncVat: 50, StatusId: 3 } as any),
+      variant('CHEAP', {}, { PriceIncVat: 125 } as any),
+    ]
+    expect(cheapestBuyable(variants)?.PartNo).toBe('CHEAP')
+    expect(cheapestBuyable([variants[1]])).toBeNull()
   })
 })
 

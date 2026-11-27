@@ -41,15 +41,8 @@
             {{ $t('productPage.from') }} <slot name="fromPrice"></slot>
           </p>
 
-          <p
-            v-if="fromPrice"
-            class="mb-1"
-            style="text-decoration:line-through;color:#888"
-          >
-            {{ formatMoney(fromPrice, currencyCode, globalCulture) }}
-          </p>
           <p class="mb-1" style="font-size:1.75rem;font-weight:700">
-            {{ formatMoney(currentItem?.PriceIncVat, currencyCode, globalCulture) }}
+            {{ formatMoney(priceItem?.PriceIncVat, currencyCode, globalCulture) }}
           </p>
 
           <p class="text-sm mb-2" style="color:#999;font-size:.85rem">
@@ -65,7 +58,7 @@
             {{ $t('productPage.nextDelivery') }} {{ parseNorcedate(currentItem?.OnHand?.NextDeliveryDate, globalCulture) }}
           </p>
 
-          <button class="btn primary mt-2" @click="handleAddToBasket" :disabled="!currentItem?.IsBuyable || choiceOpen">
+          <button class="btn primary mt-2" @click="handleAddToBasket" :disabled="!canAddToBasket">
             {{ $t('productPage.addToBasket') }}
           </button>
         </section>
@@ -74,11 +67,11 @@
 
         <!-- Variant selector: faceted parametrics let the user pick Color, Size, etc.
              Hidden entirely unless there is a real choice - see hasVariantChoice. -->
-        <section v-if="hasVariantChoice" class="vs mt-4">
+        <section v-if="hasVariantChoice || needsWayOut(variants, selection)" class="vs mt-4">
           <div class="vs__head">
             <h3 class="vs__title">{{ $t('productPage.chooseVariant') }}</h3>
             <!-- The way from one variant to any other: see rule 2 in variantSelection.ts. -->
-            <button v-if="Object.keys(selection.choices).length" type="button" class="vs__clear" @click="clearChoices">
+            <button v-if="Object.keys(selection.choices).length || needsWayOut(variants, selection)" type="button" class="vs__clear" @click="clearChoices">
               {{ $t('productPage.clearChoices') }}
             </button>
           </div>
@@ -265,7 +258,8 @@ import {cdnImg, getAlt, parseNorcedate, showFlag, fileUrl, formatMoney, decodeEn
 
 import type { Product, Promotion, RelationGroup, Flag } from '@/types'
 import {
-  canChoose, choose, clearSelection, facetCode, startSelection, valueKey, variantNamedBy, type Selection,
+  canChoose, cheapestBuyable, choose, clearSelection, facetCode, isBuyable, needsWayOut, startSelection, valueKey,
+  variantNamedBy, type Selection,
 } from '@/lib/variantSelection'
 
 type DebugPopup = { show: (errors: { context: string; message: string }[]) => void }
@@ -476,16 +470,16 @@ function downloadSpecSheet() {
   if (pdf) window.open(fileUrl(pdf), '_blank')
 }
 
-const currencyCode = computed(() => (currentItem.value as any)?.CurrencyCode || 'SEK')
+// The price shown: the selected variant's, or while none is selected the
+// cheapest buyable one's - the "From" price a shared address starts on. Never
+// the root's Price, which is ex VAT; next to PriceIncVat it read as a markdown.
+const priceItem = computed(() => (choiceOpen.value && cheapestBuyable(variants.value)) || currentItem.value)
 
-const fromPrice = computed(() => {
-  const hasVariants = !!product.value?.Variants?.length
-  return hasVariants && !selectedVariant.value ? product.value?.Price ?? null : null
-})
+const currencyCode = computed(() => (priceItem.value as any)?.CurrencyCode || 'SEK')
 
 const vatAmount = computed(() => {
-  if (!currentItem.value?.PriceIncVat || !currentItem.value?.Price) return null
-  return Math.max(0, currentItem.value.PriceIncVat - currentItem.value.Price)
+  if (!priceItem.value?.PriceIncVat || !priceItem.value?.Price) return null
+  return Math.max(0, priceItem.value.PriceIncVat - priceItem.value.Price)
 })
 
 // Build facets from VariantParametrics — these are the selectable options (Color, Size, etc.)
@@ -529,6 +523,9 @@ const variants = computed<Product[]>(() => product.value?.Variants ?? [])
 // The chips leave a facet open: no variant is selected, so nothing can be added.
 const choiceOpen = computed(() => variants.value.length > 0 && !selection.value.variant)
 
+// The same test the chips use, so the button never offers what they rule out.
+const canAddToBasket = computed(() => isBuyable(variants.value.length ? selection.value.variant : product.value))
+
 function setFacet(code: string, key: string) {
   selection.value = choose(variants.value, selection.value, code, key)
 }
@@ -548,7 +545,7 @@ const isCultureInitialized = inject('isCultureInitialized') as Ref<boolean>;
 const { addItem } = useBasket()
 
 function handleAddToBasket() {
-  if (!currentItem.value) return
+  if (!canAddToBasket.value || !currentItem.value) return
   // PartNo and quantity only. The price list decides the price, server side —
   // see toBasketItem() in bff/index.js.
   addItem({
