@@ -289,7 +289,11 @@ describe('a way out of a linked variant that cannot be bought', () => {
     const linked = startSelection(twins, 'red-m')
     expect(needsWayOut(twins, linked)).toBe(true)
     expect(partNo(click(twins, linked, ['Color', 'red']))).toBe('RED-M-2')
-    expect(partNo(click(twins, clearSelection(twins), ['Size', 'M'], ['Color', 'red']))).toBe('RED-M-2')
+    // Devin and Copilot on 00ead70: after Clear selection nothing was selected,
+    // the selector hid again, and with it the chips that lead to the twin.
+    const cleared = clearSelection(twins)
+    expect(needsWayOut(twins, cleared)).toBe(true)
+    expect(partNo(click(twins, cleared, ['Size', 'M'], ['Color', 'red']))).toBe('RED-M-2')
   })
 
   it('leads to the buyable one when no variant has facets at all', () => {
@@ -330,6 +334,17 @@ describe('cheapestBuyable', () => {
     ]
     expect(cheapestBuyable(variants)?.PartNo).toBe('CHEAP')
     expect(cheapestBuyable([variants[1]])).toBeNull()
+  })
+
+  // Devin on 00ead70: with Blue on, the "From" price was a cheaper red one's.
+  it('has every chip that is on', () => {
+    const variants = [
+      variant('RED-S', { Color: 'red', Size: 'S' }, { PriceIncVat: 100 } as any),
+      variant('BLUE-S', { Color: 'blue', Size: 'S' }, { PriceIncVat: 200 } as any),
+      variant('BLUE-L', { Color: 'blue', Size: 'L' }, { PriceIncVat: 150 } as any),
+    ]
+    expect(cheapestBuyable(variants, { Color: 'blue' })?.PartNo).toBe('BLUE-L')
+    expect(cheapestBuyable(variants, { Color: 'blue', Size: 'S' })?.PartNo).toBe('BLUE-S')
   })
 })
 

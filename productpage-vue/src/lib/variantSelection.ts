@@ -106,19 +106,28 @@ export function variantNamedBy<V extends VariantLike>(variants: readonly V[], un
 }
 
 /**
- * The selected variant cannot be bought and another can. The page then shows
- * the selector, and Clear selection, even when no facet differs: two variants
- * with the same values, one of them unbuyable, or variants with no facets at
- * all, would otherwise leave the shopper on the one that cannot be bought
- * (rule 2).
+ * Nothing that can be bought is selected, and some variant can be bought: the
+ * selected variant cannot be, or none is selected. The page then shows the
+ * selector even when no facet differs. Two variants with the same values, one
+ * of them unbuyable, would otherwise leave the shopper on the one that cannot
+ * be bought, or after Clear selection with no chips to choose the other (rule 2).
  */
 export function needsWayOut<V extends VariantLike>(variants: readonly V[], selection: Selection<V>): boolean {
-  return selection.variant !== null && !isBuyable(selection.variant) && variants.some(isBuyable)
+  return !isBuyable(selection.variant) && variants.some(isBuyable)
 }
 
-/** The cheapest buyable variant incl. VAT: the "from" price while no variant is selected. */
-export function cheapestBuyable<V extends VariantLike & { PriceIncVat?: number | null }>(variants: readonly V[]): V | null {
-  return variants.filter(isBuyable).reduce<V | null>(
+/**
+ * The cheapest buyable variant incl. VAT that has every chip that is on: the
+ * "From" price while the chips name no variant yet.
+ */
+export function cheapestBuyable<V extends VariantLike & { PriceIncVat?: number | null }>(
+  variants: readonly V[], choices: Facets = {},
+): V | null {
+  const matching = variants.filter(v => {
+    const facets = facetsOf(v)
+    return isBuyable(v) && Object.entries(choices).every(([c, k]) => facets[c] === k)
+  })
+  return matching.reduce<V | null>(
     (cheapest, v) => cheapest === null || (v.PriceIncVat ?? 0) < (cheapest.PriceIncVat ?? 0) ? v : cheapest, null)
 }
 

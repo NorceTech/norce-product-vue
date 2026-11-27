@@ -71,7 +71,7 @@
           <div class="vs__head">
             <h3 class="vs__title">{{ $t('productPage.chooseVariant') }}</h3>
             <!-- The way from one variant to any other: see rule 2 in variantSelection.ts. -->
-            <button v-if="Object.keys(selection.choices).length || needsWayOut(variants, selection)" type="button" class="vs__clear" @click="clearChoices">
+            <button v-if="Object.keys(selection.choices).length || (selection.variant && needsWayOut(variants, selection))" type="button" class="vs__clear" @click="clearChoices">
               {{ $t('productPage.clearChoices') }}
             </button>
           </div>
@@ -471,9 +471,10 @@ function downloadSpecSheet() {
 }
 
 // The price shown: the selected variant's, or while none is selected the
-// cheapest buyable one's - the "From" price a shared address starts on. Never
-// the root's Price, which is ex VAT; next to PriceIncVat it read as a markdown.
-const priceItem = computed(() => (choiceOpen.value && cheapestBuyable(variants.value)) || currentItem.value)
+// cheapest buyable one with the chips that are on - a "From" price. Never the
+// root's Price, which is ex VAT; next to PriceIncVat it read as a markdown.
+const priceItem = computed(() =>
+  (choiceOpen.value && cheapestBuyable(variants.value, selection.value.choices)) || currentItem.value)
 
 const currencyCode = computed(() => (priceItem.value as any)?.CurrencyCode || 'SEK')
 
