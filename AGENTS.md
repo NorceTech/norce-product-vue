@@ -74,6 +74,28 @@ every culture, gets the name back from `GetProduct` and `router.replace`s to it.
 by unique name, as the lessons teach. Back and Forward across a switch need no lookup: the culture
 is in the address, so each entry says which culture its name belongs to.
 
+**An address names either the whole product or one variant.** The product's shared unique name and
+a variant's own unique name both find the same product. The product page selects the variant in
+`Variants` whose `UniqueName` is the address, and starts on the first buyable variant only when the
+address is the shared name. Read the variant from `Variants`, not from the root: by a variant's
+name the root carries that variant's `PartNo`, but its price and stock are still the whole
+product's (PEX-870, PROD-7699). A language switch on such a page sends the variant's `Id` with
+`variant=true`, and `/api/uniquename` answers with the variant's name, so the switch keeps the
+variant. The root's `UniqueName` is always the shared name, whichever `Id` was asked for. A link
+by the product's default name in another culture is found too, but neither the answer's names nor
+its root say which variant it meant, so it opens like the shared name — see `variantNamedBy`.
+
+**The variant chips are pure functions in `src/lib/variantSelection.ts`, with a unit test per rule.**
+The state is the chips that are on and the variant they name. A chip can be clicked only when a
+buyable variant has its value together with every other chip that is on, so a click never moves
+another chip and the page never shows a variant other than the chips do. On a sparse catalog that
+can leave no single click from one variant to another; **Clear selection** is the way there. A
+variant without a facet has a **None** chip of its own in that row, so it is chosen like any other,
+and the selector shows whenever there is a buyable variant to go to (`showsSelector`). Keep
+the rules in that file's header, and change a rule there and in its test, never by ranking
+candidates in the page: every ranking tried on PEX-884 left some variant unreachable or moved a
+chip the shopper had not clicked.
+
 The basket endpoints take only `PartNo` and `Quantity` from the browser — see `toBasketItem()`.
 Forwarding a client-supplied price to `InsertBasketItem` is a price manipulation hole, and the wrong
 pattern to copy into a real storefront. `CreateBasket` here sets no payment or delivery method:
@@ -87,6 +109,7 @@ choosing those is checkout's job.
 - **Price fields differ per service** — the Product Service returns `Price` (ex VAT) and `PriceIncVat`. Do not mix inc/ex VAT fields in one fallback chain.
 - **Money formatting** — use `formatMoney()` from `useHelpers`; the selected culture decides the format, never a hard-coded locale.
 - **Types are enforced** — `npm run typecheck` (`vue-tsc --noEmit`) must pass; `npm run build` runs it first.
+- **`npm test` in `productpage-vue/`** runs the Vitest unit tests (`src/**/*.test.ts`). Only pure modules have them; there is no component test setup.
 - **Costs never reach the browser** — products and baskets pass through unmapped, except the merchant's costs: `withoutCosts()` drops `CostPurchase` and `CostUnit` from a product and each of its variants, `basketWithoutCosts()` drops `Cost` and `CostUnit` from basket rows. A new route that returns a product or a basket goes through them.
 - **CSS** — plain CSS in separate `.css` files imported by components, plus a global `style.css`.
 - **TypeScript types** — interfaces live in `src/types/`. Respect these contracts.
